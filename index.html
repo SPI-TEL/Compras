@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portal de Gestão de Compras - SC & Lead Time</title>
+  <title>Portal de Gestão de Compras - SC & SLA PC</title>
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -28,20 +28,25 @@
     .badge-fatura-a { background-color: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
     .badge-fatura-b { background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
     .badge-estoque { background-color: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; }
+
+    /* Scrollbar personalizada para menus de filtro */
+    .custom-scroll::-webkit-scrollbar { width: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
   <!-- Header -->
-  <header class="bg-slate-900 text-white shadow-md sticky top-0 z-40">
+  <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
       <div class="flex items-center gap-3">
-        <div class="bg-blue-600 p-2 rounded-lg">
+        <div class="bg-blue-600 p-2 rounded-lg shadow-sm">
           <i data-lucide="shopping-cart" class="w-6 h-6 text-white"></i>
         </div>
         <div>
           <h1 class="text-lg font-bold leading-tight">Portal de Gestão de Compras & SCs</h1>
-          <p class="text-xs text-slate-400">Acompanhamento de Demandas, Destinação, Prazos de Necessidade e Pedidos</p>
+          <p class="text-xs text-slate-400">Controle de SLA PC, Tempo de SC, Fatura A/B, Estoque e Pendências</p>
         </div>
       </div>
 
@@ -70,65 +75,102 @@
       </button>
     </div>
 
-    <!-- Barra de Filtros -->
-    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center justify-between">
-      <div class="flex flex-wrap gap-3 items-center">
-        <!-- Filtro Mês de Referência (Data do Cadastro) -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">Mês de Cadastro</label>
-          <select id="filtroMes" onchange="aplicarFiltros()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-blue-500">
-            <option value="TODOS">Todos os Períodos</option>
-          </select>
+    <!-- Barra de Filtros com Múltipla Escolha -->
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+      <div class="flex flex-wrap gap-3 items-center justify-between">
+        
+        <div class="flex flex-wrap gap-2.5 items-center flex-1">
+          <!-- 1. Multi-Select Mês de Cadastro -->
+          <div class="relative" id="dropdownContainer-mes">
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Mês de Cadastro</label>
+            <button type="button" onclick="toggleDropdown('mes')" id="btnLabel-mes" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[170px] shadow-sm hover:bg-slate-100">
+              <span id="text-mes" class="truncate">Mês Atual</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+            </button>
+            <div id="menu-mes" class="hidden absolute left-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
+              <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
+                <button onclick="selecionarTodos('mes', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
+                <button onclick="selecionarTodos('mes', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
+              </div>
+              <div id="lista-mes" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
+            </div>
+          </div>
+
+          <!-- 2. Multi-Select Situação SC -->
+          <div class="relative" id="dropdownContainer-situacao">
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Situação da SC</label>
+            <button type="button" onclick="toggleDropdown('situacao')" id="btnLabel-situacao" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[160px] shadow-sm hover:bg-slate-100">
+              <span id="text-situacao" class="truncate">Todas</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+            </button>
+            <div id="menu-situacao" class="hidden absolute left-0 mt-1 w-60 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
+              <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
+                <button onclick="selecionarTodos('situacao', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
+                <button onclick="selecionarTodos('situacao', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
+              </div>
+              <div id="lista-situacao" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
+            </div>
+          </div>
+
+          <!-- 3. Multi-Select Destinação -->
+          <div class="relative" id="dropdownContainer-destinacao">
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Destinação</label>
+            <button type="button" onclick="toggleDropdown('destinacao')" id="btnLabel-destinacao" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[155px] shadow-sm hover:bg-slate-100">
+              <span id="text-destinacao" class="truncate">Todas</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+            </button>
+            <div id="menu-destinacao" class="hidden absolute left-0 mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
+              <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
+                <button onclick="selecionarTodos('destinacao', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
+                <button onclick="selecionarTodos('destinacao', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
+              </div>
+              <div id="lista-destinacao" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
+            </div>
+          </div>
+
+          <!-- 4. Multi-Select Tipo de Demanda -->
+          <div class="relative" id="dropdownContainer-tipo">
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tipo de Demanda</label>
+            <button type="button" onclick="toggleDropdown('tipo')" id="btnLabel-tipo" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[155px] shadow-sm hover:bg-slate-100">
+              <span id="text-tipo" class="truncate">Todos</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+            </button>
+            <div id="menu-tipo" class="hidden absolute left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
+              <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
+                <button onclick="selecionarTodos('tipo', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
+                <button onclick="selecionarTodos('tipo', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
+              </div>
+              <div id="lista-tipo" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
+            </div>
+          </div>
+
+          <!-- 5. Multi-Select Status do Pedido -->
+          <div class="relative" id="dropdownContainer-status">
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Status do Pedido</label>
+            <button type="button" onclick="toggleDropdown('status')" id="btnLabel-status" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[160px] shadow-sm hover:bg-slate-100">
+              <span id="text-status" class="truncate">Todos</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+            </button>
+            <div id="menu-status" class="hidden absolute left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
+              <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
+                <button onclick="selecionarTodos('status', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
+                <button onclick="selecionarTodos('status', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
+              </div>
+              <div id="lista-status" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
+            </div>
+          </div>
+
         </div>
 
-        <!-- Filtro Situação da SC -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">Situação da SC</label>
-          <select id="filtroSituacao" onchange="aplicarFiltros()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-blue-500">
-            <option value="TODOS">Todas as Situações</option>
-          </select>
+        <!-- Busca Rápida -->
+        <div class="w-full md:w-56 mt-2 md:mt-0">
+          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Busca Rápida</label>
+          <div class="relative">
+            <input type="text" id="campoBusca" onkeyup="aplicarFiltros()" placeholder="Nº SC, solicitante, produto..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+          </div>
         </div>
 
-        <!-- Filtro Destinação -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">Destinação</label>
-          <select id="filtroDestinacao" onchange="aplicarFiltros()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-blue-500">
-            <option value="TODOS">Todas as Destinações</option>
-            <option value="FATURA A">Fatura A</option>
-            <option value="FATURA B">Fatura B</option>
-            <option value="ESTOQUE">Estoque</option>
-          </select>
-        </div>
-
-        <!-- Filtro Tipo de Demanda -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">Tipo de Demanda</label>
-          <select id="filtroTipo" onchange="aplicarFiltros()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-blue-500">
-            <option value="TODOS">Todos os Tipos</option>
-            <option value="EMERGENCIAL">Emergencial</option>
-            <option value="REGULARIZACAO">Regularização</option>
-            <option value="NORMAL">Demanda Normal</option>
-          </select>
-        </div>
-
-        <!-- Filtro Status do Pedido -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 mb-1">Status do Pedido</label>
-          <select id="filtroStatus" onchange="aplicarFiltros()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-blue-500">
-            <option value="TODOS">Todas as SCs</option>
-            <option value="PENDENTE">Apenas Pendentes (Sem Pedido)</option>
-            <option value="ATENDIDA">Com Pedido Gerado</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Busca Rápida -->
-      <div class="w-full md:w-60">
-        <label class="block text-xs font-semibold text-slate-500 mb-1">Busca Rápida</label>
-        <div class="relative">
-          <input type="text" id="campoBusca" onkeyup="aplicarFiltros()" placeholder="Nº SC, solicitante, produto..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5"></i>
-        </div>
       </div>
     </div>
 
@@ -164,9 +206,9 @@
             <i data-lucide="clock" class="w-6 h-6"></i>
           </div>
           <div>
-            <p class="text-xs text-slate-500 font-medium">Média Dias para Pedido</p>
+            <p class="text-xs text-slate-500 font-medium">Média SLA PC</p>
             <h3 id="kpiMediaDias" class="text-2xl font-bold text-slate-800">0 dias</h3>
-            <span class="text-[11px] text-slate-400">Cadastro até Emissão</span>
+            <span class="text-[11px] text-slate-400">Aprovação até Pedido</span>
           </div>
         </div>
 
@@ -184,8 +226,7 @@
 
       <!-- Gráficos Superiores (Destino em Colunas e Demanda) -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        <!-- Gráfico 1: Destinação em Colunas (Qtde e %) -->
+        <!-- Gráfico Destinação -->
         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
           <div class="flex justify-between items-center mb-3">
             <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
@@ -198,28 +239,27 @@
           </div>
         </div>
 
-        <!-- Gráfico 2: Tipo de Demanda (Volume e %) -->
+        <!-- Gráfico Tipo Demanda -->
         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
           <div class="flex justify-between items-center mb-3">
             <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
-              <i data-lucide="pie-chart" class="w-4 h-4 text-blue-500"></i> Tipos de Demanda (Identificados na Descrição)
+              <i data-lucide="pie-chart" class="w-4 h-4 text-blue-500"></i> Tipos de Demanda (Volume & %)
             </h4>
-            <span class="text-[11px] text-slate-400 font-medium">Volume & %</span>
+            <span class="text-[11px] text-slate-400 font-medium">Emergencial / Regularização / Normal</span>
           </div>
           <div class="relative h-64 flex items-center justify-center">
             <canvas id="chartTipoDemanda"></canvas>
           </div>
         </div>
-
       </div>
 
       <!-- Gráfico Inferior: Comparativo Mensal em 1 Linha Inteira -->
       <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm w-full">
         <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
           <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
-            <i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i> Comparativo Mensal de Demanda (Volume, Pendências e Média de Dias)
+            <i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i> Comparativo Mensal de Demanda (Volume, Pendências e SLA PC)
           </h4>
-          <span class="text-xs text-slate-400">Agrupado pelo mês de cadastro</span>
+          <span class="text-xs text-slate-400">Evolução por Mês de Cadastro</span>
         </div>
         <div class="relative h-72 w-full">
           <canvas id="chartEvolucao"></canvas>
@@ -246,19 +286,20 @@
                 <th class="py-3 px-3">Cód. SC</th>
                 <th class="py-3 px-3">Data Cadastro</th>
                 <th class="py-3 px-3">Data Necessidade</th>
+                <th class="py-3 px-3 text-center">Tempo SC</th>
                 <th class="py-3 px-3">Situação SC</th>
                 <th class="py-3 px-3">Destinação</th>
                 <th class="py-3 px-3">Tipo Demanda</th>
                 <th class="py-3 px-3">Solicitante</th>
                 <th class="py-3 px-3">Nº Pedido</th>
                 <th class="py-3 px-3">Status Pedido</th>
-                <th class="py-3 px-3 text-center">Dias (SLA / Espera)</th>
+                <th class="py-3 px-3 text-center">SLA PC</th>
                 <th class="py-3 px-3 text-right">Valor Total SC</th>
               </tr>
             </thead>
             <tbody id="tabelaMasterSC" class="divide-y divide-slate-100">
               <tr>
-                <td colspan="12" class="text-center py-8 text-slate-400">Carregando dados da planilha...</td>
+                <td colspan="13" class="text-center py-8 text-slate-400">Carregando dados da planilha...</td>
               </tr>
             </tbody>
           </table>
@@ -274,7 +315,7 @@
         <div>
           <h4 class="text-sm font-bold text-amber-900">Histórico de Pendências Recentes</h4>
           <p class="text-xs text-amber-800">
-            Abaixo estão listadas todas as SCs cadastradas nos últimos 90 dias que <strong>ainda não possuem Pedido de Compra gerado</strong>, incluindo data de necessidade, tempo em aberto e observações registradas.
+            Abaixo estão listadas todas as SCs cadastradas nos últimos 90 dias que <strong>ainda não possuem Pedido de Compra gerado</strong>, indicando o Tempo SC decorrido, o SLA PC de espera e as observações.
           </p>
         </div>
       </div>
@@ -294,7 +335,8 @@
                 <th class="py-3 px-3">Cód. SC</th>
                 <th class="py-3 px-3">Data Cadastro</th>
                 <th class="py-3 px-3">Data Necessidade</th>
-                <th class="py-3 px-3">Dias Pendente</th>
+                <th class="py-3 px-3 text-center">Tempo SC</th>
+                <th class="py-3 px-3 text-center">SLA PC (Espera)</th>
                 <th class="py-3 px-3">Situação</th>
                 <th class="py-3 px-3">Destinação</th>
                 <th class="py-3 px-3">Tipo Demanda</th>
@@ -320,15 +362,54 @@
     // Estado da aplicação
     let scMap = new Map();
     let scArray = [];
-    let situacoesSet = new Set();
     let chartDest = null;
     let chartTipo = null;
     let chartEvo = null;
 
+    // Estado dos Filtros com Múltipla Escolha (Set de selecionados)
+    const filtrosState = {
+      mes: new Set(),
+      situacao: new Set(),
+      destinacao: new Set(),
+      tipo: new Set(),
+      status: new Set()
+    };
+
+    // Opções disponíveis encontradas nos dados
+    const opcoesDisponiveis = {
+      mes: [],
+      situacao: [],
+      destinacao: ['FATURA A', 'FATURA B', 'ESTOQUE'],
+      tipo: ['EMERGENCIAL', 'REGULARIZACAO', 'NORMAL'],
+      status: ['PENDENTE', 'ATENDIDA']
+    };
+
     document.addEventListener("DOMContentLoaded", () => {
       lucide.createIcons();
       carregarDados();
+
+      // Fechar dropdowns ao clicar fora
+      document.addEventListener("click", (e) => {
+        ['mes', 'situacao', 'destinacao', 'tipo', 'status'].forEach(id => {
+          const container = document.getElementById(`dropdownContainer-${id}`);
+          const menu = document.getElementById(`menu-${id}`);
+          if (container && !container.contains(e.target) && menu) {
+            menu.classList.add("hidden");
+          }
+        });
+      });
     });
+
+    function toggleDropdown(id) {
+      ['mes', 'situacao', 'destinacao', 'tipo', 'status'].forEach(other => {
+        if (other !== id) {
+          const m = document.getElementById(`menu-${other}`);
+          if (m) m.classList.add("hidden");
+        }
+      });
+      const menu = document.getElementById(`menu-${id}`);
+      if (menu) menu.classList.toggle("hidden");
+    }
 
     function trocarAba(aba) {
       const secaoDash = document.getElementById("secaoDashboard");
@@ -385,7 +466,7 @@
       return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    // REGRA 1: Regularização e Emergencial verificados na Descrição da Compra
+    // Regras de Classificação
     function classificarDemandaPorDescricao(descCompra) {
       const desc = (descCompra || "").toUpperCase();
       if (desc.includes("EMERGENCIAL")) return "EMERGENCIAL";
@@ -393,7 +474,6 @@
       return "NORMAL";
     }
 
-    // REGRA 2: Fatura A, Fatura B ou Estoque
     function classificarDestinacao(utilizacaoCompra, descCompra, obs) {
       const texto = ((utilizacaoCompra || "") + " " + (descCompra || "") + " " + (obs || "")).toUpperCase();
       if (texto.includes("FATURA A") || texto.includes("FATURA-A") || texto.includes("FAT. A")) return "FATURA A";
@@ -406,7 +486,7 @@
       return "ESTOQUE";
     }
 
-    // Carregamento de Dados da Planilha
+    // Carregamento de Dados
     function carregarDados() {
       const btn = document.getElementById("btnRefresh");
       btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Sincronizando...`;
@@ -422,7 +502,7 @@
           lucide.createIcons();
         },
         error: function(err) {
-          console.error("Erro ao carregar CSV:", err);
+          console.error("Erro:", err);
           alert("Não foi possível carregar a planilha automaticamente. Verifique se o link público continua ativo.");
           btn.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-500"></i> Erro na Conexão`;
           lucide.createIcons();
@@ -436,9 +516,7 @@
       const header = linhas[0];
       const dados = linhas.slice(1);
       scMap.clear();
-      situacoesSet.clear();
 
-      // Localizadores dinâmicos de cabeçalho para maior resiliência
       const findCol = (name, fallback) => {
         const idx = header.findIndex(h => h && h.trim().toLowerCase() === name.toLowerCase());
         return idx !== -1 ? idx : fallback;
@@ -449,7 +527,8 @@
       const idxDtCad = findCol("Data Cadastro", 3);
       const idxDtNec = findCol("Data Necessidade", 4);
       const idxSolicitante = findCol("Solicitante", 6);
-      const idxSituacao = findCol("Situação", 9); // Situação da SC
+      const idxSituacao = findCol("Situação", 9);
+      const idxDtAprovacao = findCol("Data da Aprovação", 10); // Data da Aprovação
       const idxProduto = findCol("Produto", 12);
       const idxQtdAprov = findCol("Quantidade Aprovada", 14);
       const idxVlrTotalItem = findCol("Vlr. Total Qtd. Aprov.", 16);
@@ -457,8 +536,20 @@
       const idxUtil = findCol("Utilização compra", 26);
       const idxNumPed = findCol("Nº Pedido", 56);
       const idxStatusPed = findCol("Status", 58);
-      const idxDtEmissaoPed = findCol("Data Emissão", 59);
+      // Data do Pedido: procura por Data Emissão de Pedido ou coluna 59/60
+      let idxDtEmissaoPed = -1;
+      for (let i = idxNumPed; i < Math.min(idxNumPed + 6, header.length); i++) {
+        if (header[i] && header[i].toLowerCase().includes("emissão")) {
+          idxDtEmissaoPed = i;
+          break;
+        }
+      }
+      if (idxDtEmissaoPed === -1) idxDtEmissaoPed = 59;
+
       const idxFornec = findCol("Fornecedor", 39);
+
+      const situacoesSet = new Set();
+      const mesesSet = new Set();
 
       dados.forEach(r => {
         const codSC = (r[idxCodSC] || "").trim();
@@ -473,6 +564,9 @@
         const situacaoSC = (r[idxSituacao] || "SEM SITUAÇÃO").trim();
         if (situacaoSC) situacoesSet.add(situacaoSC);
 
+        const dataAprovacaoStr = r[idxDtAprovacao] || "";
+        const dataAprovacao = parseDate(dataAprovacaoStr);
+
         const produto = r[idxProduto] || "";
         const qtdAprovada = parseFloat(r[idxQtdAprov]) || 1;
         const vlrTotalItem = parseValor(r[idxVlrTotalItem]) || parseValor(r[52]) || parseValor(r[66]) || 0;
@@ -484,7 +578,6 @@
         const dataEmissaoPedido = parseDate(dataEmissaoPedidoStr);
         const fornecedor = r[idxFornec] || r[67] || "Não Definido";
 
-        // Classificações conforme solicitado
         const tipoDemanda = classificarDemandaPorDescricao(descCompra);
         const destinacao = classificarDestinacao(utilizacaoCompra, descCompra, obsSC);
 
@@ -496,6 +589,8 @@
             dataCadastroStr,
             dataNecessidade,
             dataNecessidadeStr,
+            dataAprovacao,
+            dataAprovacaoStr,
             solicitante,
             situacao: situacaoSC,
             destinacao,
@@ -527,85 +622,246 @@
           sc.dataEmissaoPedido = dataEmissaoPedido;
           sc.dataEmissaoPedidoStr = dataEmissaoPedidoStr;
         }
+        if (dataAprovacao && !sc.dataAprovacao) {
+          sc.dataAprovacao = dataAprovacao;
+          sc.dataAprovacaoStr = dataAprovacaoStr;
+        }
       });
 
-      // Cálculo de SLA (dias entre cadastro e emissão do pedido, ou dias em aberto até hoje)
+      // Cálculo de Tempos:
+      // 1. Tempo SC = Dias corridos entre Data Cadastro e Data Atual
+      // 2. SLA PC = Dias corridos entre Data Aprovação e Data Pedido (ou até hoje se não emitido)
       const hoje = new Date();
       scArray = Array.from(scMap.values()).map(sc => {
-        let dias = 0;
+        // Tempo SC
+        let tempoSC = 0;
         if (sc.dataCadastro) {
+          tempoSC = Math.max(0, Math.round((hoje - sc.dataCadastro) / (1000 * 60 * 60 * 24)));
+        }
+
+        // SLA PC (Data da Aprovação até Data do Pedido)
+        let slaPC = null;
+        let baseAprovacao = sc.dataAprovacao || sc.dataCadastro; // Fallback para data de cadastro se aprovação vazia
+
+        if (baseAprovacao) {
           if (sc.numPedido && sc.dataEmissaoPedido) {
-            dias = Math.max(0, Math.round((sc.dataEmissaoPedido - sc.dataCadastro) / (1000 * 60 * 60 * 24)));
+            slaPC = Math.max(0, Math.round((sc.dataEmissaoPedido - baseAprovacao) / (1000 * 60 * 60 * 24)));
           } else {
-            dias = Math.max(0, Math.round((hoje - sc.dataCadastro) / (1000 * 60 * 60 * 24)));
+            slaPC = Math.max(0, Math.round((hoje - baseAprovacao) / (1000 * 60 * 60 * 24)));
           }
         }
-        return { ...sc, dias };
-      });
 
-      popularSeletoresFiltro();
-      aplicarFiltros();
-      renderizarPendencias3M();
-    }
-
-    function popularSeletoresFiltro() {
-      // 1. Mês de Referência (Baseado na Data do Cadastro)
-      const selectMes = document.getElementById("filtroMes");
-      const mesesSet = new Set();
-
-      scArray.forEach(sc => {
         if (sc.dataCadastro) {
           const ano = sc.dataCadastro.getFullYear();
           const mes = String(sc.dataCadastro.getMonth() + 1).padStart(2, '0');
           mesesSet.add(`${ano}-${mes}`);
         }
+
+        return { ...sc, tempoSC, slaPC };
       });
 
-      const mesesOrdenados = Array.from(mesesSet).sort().reverse();
-      selectMes.innerHTML = '<option value="TODOS">Todos os Períodos</option>';
-      mesesOrdenados.forEach(m => {
-        const [ano, mes] = m.split("-");
-        const dt = new Date(ano, parseInt(mes) - 1, 1);
-        const rotulo = dt.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-        selectMes.innerHTML += `<option value="${m}">${rotulo.charAt(0).toUpperCase() + rotulo.slice(1)}</option>`;
+      // Configurar opções disponíveis
+      opcoesDisponiveis.mes = Array.from(mesesSet).sort().reverse();
+      opcoesDisponiveis.situacao = Array.from(situacoesSet).sort();
+
+      // Configurar Mês Atual automaticamente
+      configurarSelecaoInicialMes();
+
+      // Inicializar todos os checkboxes dos outros filtros como selecionados por padrão
+      ['situacao', 'destinacao', 'tipo', 'status'].forEach(campo => {
+        filtrosState[campo] = new Set(opcoesDisponiveis[campo]);
       });
 
-      // 2. Situações da SC
-      const selectSituacao = document.getElementById("filtroSituacao");
-      selectSituacao.innerHTML = '<option value="TODOS">Todas as Situações</option>';
-      Array.from(situacoesSet).sort().forEach(sit => {
-        selectSituacao.innerHTML += `<option value="${sit}">${sit}</option>`;
+      renderizarMenusFiltros();
+      aplicarFiltros();
+      renderizarPendencias3M();
+    }
+
+    function configurarSelecaoInicialMes() {
+      const hoje = new Date();
+      const mesAtualKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+
+      filtrosState.mes.clear();
+      // Se o mês atual do calendário existir nos dados, seleciona ele
+      if (opcoesDisponiveis.mes.includes(mesAtualKey)) {
+        filtrosState.mes.add(mesAtualKey);
+      } else if (opcoesDisponiveis.mes.length > 0) {
+        // Caso a base não tenha o mês atual de calendário, seleciona o mês mais recente disponível
+        filtrosState.mes.add(opcoesDisponiveis.mes[0]);
+      }
+    }
+
+    function renderizarMenusFiltros() {
+      // 1. Menu Mês de Cadastro
+      const listaMes = document.getElementById("lista-mes");
+      listaMes.innerHTML = opcoesDisponiveis.mes.map(m => {
+        const [a, mes] = m.split("-");
+        const dt = new Date(a, parseInt(mes) - 1, 1);
+        const label = dt.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        const labelFormatada = label.charAt(0).toUpperCase() + label.slice(1);
+        const checked = filtrosState.mes.has(m) ? 'checked' : '';
+        return `
+          <label class="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
+            <input type="checkbox" ${checked} onchange="onCheckboxChange('mes', '${m}', this.checked)" class="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5">
+            <span class="text-slate-700">${labelFormatada}</span>
+          </label>
+        `;
+      }).join('');
+
+      // 2. Menu Situação SC
+      const listaSituacao = document.getElementById("lista-situacao");
+      listaSituacao.innerHTML = opcoesDisponiveis.situacao.map(sit => {
+        const checked = filtrosState.situacao.has(sit) ? 'checked' : '';
+        return `
+          <label class="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
+            <input type="checkbox" ${checked} onchange="onCheckboxChange('situacao', '${sit}', this.checked)" class="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5">
+            <span class="text-slate-700">${sit}</span>
+          </label>
+        `;
+      }).join('');
+
+      // 3. Menu Destinação
+      const listaDest = document.getElementById("lista-destinacao");
+      const labelsDest = { 'FATURA A': 'Fatura A', 'FATURA B': 'Fatura B', 'ESTOQUE': 'Estoque' };
+      listaDest.innerHTML = opcoesDisponiveis.destinacao.map(d => {
+        const checked = filtrosState.destinacao.has(d) ? 'checked' : '';
+        return `
+          <label class="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
+            <input type="checkbox" ${checked} onchange="onCheckboxChange('destinacao', '${d}', this.checked)" class="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5">
+            <span class="text-slate-700">${labelsDest[d] || d}</span>
+          </label>
+        `;
+      }).join('');
+
+      // 4. Menu Tipo de Demanda
+      const listaTipo = document.getElementById("lista-tipo");
+      const labelsTipo = { 'EMERGENCIAL': 'Emergencial', 'REGULARIZACAO': 'Regularização', 'NORMAL': 'Demanda Normal' };
+      listaTipo.innerHTML = opcoesDisponiveis.tipo.map(t => {
+        const checked = filtrosState.tipo.has(t) ? 'checked' : '';
+        return `
+          <label class="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
+            <input type="checkbox" ${checked} onchange="onCheckboxChange('tipo', '${t}', this.checked)" class="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5">
+            <span class="text-slate-700">${labelsTipo[t] || t}</span>
+          </label>
+        `;
+      }).join('');
+
+      // 5. Menu Status do Pedido
+      const listaStatus = document.getElementById("lista-status");
+      const labelsStatus = { 'PENDENTE': 'Pendente (Sem Pedido)', 'ATENDIDA': 'Com Pedido Gerado' };
+      listaStatus.innerHTML = opcoesDisponiveis.status.map(s => {
+        const checked = filtrosState.status.has(s) ? 'checked' : '';
+        return `
+          <label class="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
+            <input type="checkbox" ${checked} onchange="onCheckboxChange('status', '${s}', this.checked)" class="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5">
+            <span class="text-slate-700">${labelsStatus[s] || s}</span>
+          </label>
+        `;
+      }).join('');
+
+      atualizarLabelsBotoes();
+    }
+
+    function onCheckboxChange(campo, valor, isChecked) {
+      if (isChecked) {
+        filtrosState[campo].add(valor);
+      } else {
+        filtrosState[campo].delete(valor);
+      }
+      atualizarLabelsBotoes();
+      aplicarFiltros();
+    }
+
+    function selecionarTodos(campo, selecionar) {
+      if (selecionar) {
+        filtrosState[campo] = new Set(opcoesDisponiveis[campo]);
+      } else {
+        filtrosState[campo].clear();
+      }
+      renderizarMenusFiltros();
+      aplicarFiltros();
+    }
+
+    function atualizarLabelsBotoes() {
+      const labelsFormat = {
+        mes: { singular: 'mês', plural: 'meses', total: opcoesDisponiveis.mes.length },
+        situacao: { singular: 'situação', plural: 'situações', total: opcoesDisponiveis.situacao.length },
+        destinacao: { singular: 'destinação', plural: 'destinações', total: opcoesDisponiveis.destinacao.length },
+        tipo: { singular: 'tipo', plural: 'tipos', total: opcoesDisponiveis.tipo.length },
+        status: { singular: 'status', plural: 'status', total: opcoesDisponiveis.status.length }
+      };
+
+      ['mes', 'situacao', 'destinacao', 'tipo', 'status'].forEach(campo => {
+        const qtd = filtrosState[campo].size;
+        const total = labelsFormat[campo].total;
+        const el = document.getElementById(`text-${campo}`);
+        if (!el) return;
+
+        if (qtd === 0) {
+          el.innerText = 'Nenhum selecionado';
+          el.className = 'truncate text-rose-500 font-semibold';
+        } else if (qtd === total) {
+          el.innerText = campo === 'mes' ? 'Todos os Períodos' : 'Todos selecionados';
+          el.className = 'truncate text-slate-700 font-medium';
+        } else if (qtd === 1) {
+          const unico = Array.from(filtrosState[campo])[0];
+          if (campo === 'mes') {
+            const [a, m] = unico.split("-");
+            const dt = new Date(a, parseInt(m) - 1, 1);
+            const nome = dt.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+            el.innerText = nome.charAt(0).toUpperCase() + nome.slice(1);
+          } else {
+            el.innerText = unico;
+          }
+          el.className = 'truncate text-blue-700 font-semibold';
+        } else {
+          el.innerText = `${qtd} selecionados`;
+          el.className = 'truncate text-blue-700 font-semibold';
+        }
       });
     }
 
     function aplicarFiltros() {
-      const mesSel = document.getElementById("filtroMes").value;
-      const situacaoSel = document.getElementById("filtroSituacao").value;
-      const destSel = document.getElementById("filtroDestinacao").value;
-      const tipoSel = document.getElementById("filtroTipo").value;
-      const statusSel = document.getElementById("filtroStatus").value;
       const busca = document.getElementById("campoBusca").value.toLowerCase().trim();
 
       const filtrados = scArray.filter(sc => {
-        // Filtro Mês baseado na Data de Cadastro
-        if (mesSel !== "TODOS" && sc.dataCadastro) {
+        // 1. Mês de Cadastro
+        if (filtrosState.mes.size > 0 && sc.dataCadastro) {
           const chaveMes = `${sc.dataCadastro.getFullYear()}-${String(sc.dataCadastro.getMonth() + 1).padStart(2, '0')}`;
-          if (chaveMes !== mesSel) return false;
+          if (!filtrosState.mes.has(chaveMes)) return false;
+        } else if (filtrosState.mes.size === 0) {
+          return false;
         }
 
-        // Filtro Situação SC
-        if (situacaoSel !== "TODOS" && sc.situacao !== situacaoSel) return false;
+        // 2. Situação SC
+        if (filtrosState.situacao.size > 0) {
+          if (!filtrosState.situacao.has(sc.situacao)) return false;
+        } else {
+          return false;
+        }
 
-        // Filtro Destinação
-        if (destSel !== "TODOS" && sc.destinacao !== destSel) return false;
+        // 3. Destinação
+        if (filtrosState.destinacao.size > 0) {
+          if (!filtrosState.destinacao.has(sc.destinacao)) return false;
+        } else {
+          return false;
+        }
 
-        // Filtro Tipo Demanda
-        if (tipoSel !== "TODOS" && sc.tipoDemanda !== tipoSel) return false;
+        // 4. Tipo de Demanda
+        if (filtrosState.tipo.size > 0) {
+          if (!filtrosState.tipo.has(sc.tipoDemanda)) return false;
+        } else {
+          return false;
+        }
 
-        // Filtro Status Pedido
+        // 5. Status do Pedido
         const isPendente = !sc.numPedido || sc.statusPedido.toUpperCase().includes("PENDENTE");
-        if (statusSel === "PENDENTE" && !isPendente) return false;
-        if (statusSel === "ATENDIDA" && isPendente) return false;
+        const statusTipo = isPendente ? 'PENDENTE' : 'ATENDIDA';
+        if (filtrosState.status.size > 0) {
+          if (!filtrosState.status.has(statusTipo)) return false;
+        } else {
+          return false;
+        }
 
         // Busca rápida
         if (busca) {
@@ -627,9 +883,10 @@
       const vol = dados.length;
       const vlrTotal = dados.reduce((acc, cur) => acc + cur.valorTotal, 0);
 
-      const emitidas = dados.filter(sc => sc.numPedido && sc.dataEmissaoPedido);
-      const mediaDias = emitidas.length > 0 
-        ? Math.round(emitidas.reduce((acc, cur) => acc + cur.dias, 0) / emitidas.length)
+      // SLA PC médio das SCs que possuem pedido emitido
+      const emitidas = dados.filter(sc => sc.numPedido && sc.slaPC !== null);
+      const mediaSlaPC = emitidas.length > 0 
+        ? Math.round(emitidas.reduce((acc, cur) => acc + cur.slaPC, 0) / emitidas.length)
         : 0;
 
       const pendentes = dados.filter(sc => !sc.numPedido);
@@ -637,13 +894,13 @@
 
       document.getElementById("kpiVolume").innerText = vol;
       document.getElementById("kpiValorTotal").innerText = formatMoeda(vlrTotal);
-      document.getElementById("kpiMediaDias").innerText = `${mediaDias} dias`;
+      document.getElementById("kpiMediaDias").innerText = `${mediaSlaPC} dias`;
       document.getElementById("kpiPendencias").innerText = pendentes.length;
       document.getElementById("kpiPendenciasPerc").innerText = `${percPend}% das SCs`;
       document.getElementById("contadorRegistros").innerText = `${vol} SCs encontradas`;
     }
 
-    // Gráfico 1: Destino (Fatura A, Fatura B, Estoque) em COLUNAS com Qtde e %
+    // Gráfico 1: Destinação em Colunas (Qtde e %)
     function renderizarGraficoDestinacaoColunas(dados) {
       const totalGeral = dados.length || 1;
       const countDest = { "FATURA A": 0, "FATURA B": 0, "ESTOQUE": 0 };
@@ -688,13 +945,11 @@
           scales: {
             y: {
               beginAtZero: true,
-              grace: '18%',
+              grace: '20%',
               ticks: { precision: 0 },
               grid: { color: '#f1f5f9' }
             },
-            x: {
-              grid: { display: false }
-            }
+            x: { grid: { display: false } }
           }
         }
       });
@@ -735,21 +990,21 @@
       });
     }
 
-    // Gráfico 3: Comparativo Mensal (1 linha inteira) baseado no Mês de Cadastro
+    // Gráfico 3: Comparativo Mensal (1 Linha Inteira)
     function renderizarGraficoEvolucaoMensal() {
       const mesesMap = {};
       scArray.forEach(sc => {
         if (!sc.dataCadastro) return;
         const chave = `${sc.dataCadastro.getFullYear()}-${String(sc.dataCadastro.getMonth() + 1).padStart(2, '0')}`;
         if (!mesesMap[chave]) {
-          mesesMap[chave] = { total: 0, pendentes: 0, diasTotal: 0, emitidas: 0 };
+          mesesMap[chave] = { total: 0, pendentes: 0, slaTotal: 0, emitidas: 0 };
         }
         mesesMap[chave].total++;
         if (!sc.numPedido) {
           mesesMap[chave].pendentes++;
         } else {
           mesesMap[chave].emitidas++;
-          mesesMap[chave].diasTotal += sc.dias;
+          if (sc.slaPC !== null) mesesMap[chave].slaTotal += sc.slaPC;
         }
       });
 
@@ -761,7 +1016,7 @@
       });
       const volMes = mesesKeys.map(k => mesesMap[k].total);
       const pendMes = mesesKeys.map(k => mesesMap[k].pendentes);
-      const mediaDiasMes = mesesKeys.map(k => mesesMap[k].emitidas > 0 ? Math.round(mesesMap[k].diasTotal / mesesMap[k].emitidas) : 0);
+      const mediaSlaMes = mesesKeys.map(k => mesesMap[k].emitidas > 0 ? Math.round(mesesMap[k].slaTotal / mesesMap[k].emitidas) : 0);
 
       const ctxEvo = document.getElementById("chartEvolucao").getContext("2d");
       if (chartEvo) chartEvo.destroy();
@@ -789,8 +1044,8 @@
             },
             {
               type: 'line',
-              label: 'Média de Dias p/ Gerar Pedido',
-              data: mediaDiasMes,
+              label: 'Média SLA PC (Aprovação até Pedido)',
+              data: mediaSlaMes,
               borderColor: '#d97706',
               backgroundColor: '#d97706',
               borderWidth: 2.5,
@@ -807,19 +1062,19 @@
           scales: {
             y: {
               beginAtZero: true,
-              title: { display: true, text: 'Volume de Solicitações (SCs)' },
+              title: { display: true, text: 'Volume de SCs' },
               grid: { color: '#f1f5f9' }
             },
             y1: {
               beginAtZero: true,
               position: 'right',
-              title: { display: true, text: 'Média de Dias (Lead Time)' },
+              title: { display: true, text: 'Média SLA PC (Dias)' },
               grid: { drawOnChartArea: false }
             }
           },
           plugins: {
             legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
-            datalabels: { display: false } // Sem poluição visual no gráfico mensal
+            datalabels: { display: false }
           }
         }
       });
@@ -829,7 +1084,7 @@
     function renderizarGridMaster(dados) {
       const tbody = document.getElementById("tabelaMasterSC");
       if (dados.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12" class="text-center py-8 text-slate-400">Nenhuma solicitação encontrada com os filtros selecionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" class="text-center py-8 text-slate-400">Nenhuma solicitação encontrada com os filtros selecionados.</td></tr>`;
         return;
       }
 
@@ -837,31 +1092,32 @@
       dados.forEach(sc => {
         const isPendente = !sc.numPedido;
 
-        // Badge Destinação
+        // Badges
         const badgeDest = sc.destinacao === "FATURA A" 
           ? `<span class="badge-fatura-a px-2 py-0.5 rounded text-[10px] font-bold">FATURA A</span>`
           : sc.destinacao === "FATURA B"
           ? `<span class="badge-fatura-b px-2 py-0.5 rounded text-[10px] font-bold">FATURA B</span>`
           : `<span class="badge-estoque px-2 py-0.5 rounded text-[10px] font-bold">ESTOQUE</span>`;
 
-        // Badge Tipo Demanda
         const badgeDemanda = sc.tipoDemanda === "EMERGENCIAL" 
           ? `<span class="badge-emergencial px-2 py-0.5 rounded text-[10px] font-bold">EMERGENCIAL</span>`
           : sc.tipoDemanda === "REGULARIZACAO"
           ? `<span class="badge-regularizacao px-2 py-0.5 rounded text-[10px] font-bold">REGULARIZAÇÃO</span>`
           : `<span class="badge-normal px-2 py-0.5 rounded text-[10px] font-bold">NORMAL</span>`;
 
-        // Badge Situação SC
         const badgeSituacao = `<span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200">${sc.situacao || '-'}</span>`;
 
-        // Badge Status do Pedido
         const badgeStatus = isPendente
           ? `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Pendente</span>`
           : `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ${sc.statusPedido || 'Gerado'}</span>`;
 
-        const badgeDias = isPendente
-          ? `<span class="font-bold text-rose-600">${sc.dias} dias aberto</span>`
-          : `<span class="text-slate-600 font-medium">${sc.dias} dias até pedido</span>`;
+        // SLA PC Badge
+        const badgeSlaPC = isPendente
+          ? `<span class="font-bold text-rose-600">${sc.slaPC !== null ? sc.slaPC + ' dias (Espera)' : '-'}</span>`
+          : `<span class="text-slate-700 font-medium">${sc.slaPC !== null ? sc.slaPC + ' dias até PC' : '-'}</span>`;
+
+        // Tempo SC Badge
+        const badgeTempoSC = `<span class="font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded font-semibold text-[11px]">${sc.tempoSC}d</span>`;
 
         html += `
           <tr class="hover:bg-slate-50 cursor-pointer transition border-b border-slate-100" onclick="toggleDetalhes('${sc.codSC}')">
@@ -871,24 +1127,29 @@
             <td class="py-3 px-3 font-bold text-blue-600">#${sc.codSC}</td>
             <td class="py-3 px-3 text-slate-500">${formatDateOnly(sc.dataCadastroStr)}</td>
             <td class="py-3 px-3 font-medium text-slate-700">${formatDateOnly(sc.dataNecessidadeStr)}</td>
+            <td class="py-3 px-3 text-center">${badgeTempoSC}</td>
             <td class="py-3 px-3">${badgeSituacao}</td>
             <td class="py-3 px-3">${badgeDest}</td>
             <td class="py-3 px-3">${badgeDemanda}</td>
             <td class="py-3 px-3 font-medium text-slate-700">${sc.solicitante || '-'}</td>
             <td class="py-3 px-3 font-mono font-medium">${sc.numPedido || '<span class="text-slate-400">---</span>'}</td>
             <td class="py-3 px-3">${badgeStatus}</td>
-            <td class="py-3 px-3 text-center">${badgeDias}</td>
+            <td class="py-3 px-3 text-center">${badgeSlaPC}</td>
             <td class="py-3 px-3 text-right font-semibold text-slate-800">${formatMoeda(sc.valorTotal)}</td>
           </tr>
 
           <!-- Detalhes dos Itens -->
           <tr id="detalhe-${sc.codSC}" class="hidden bg-slate-50/70 border-b border-slate-200">
-            <td colspan="12" class="p-4 pl-12">
+            <td colspan="13" class="p-4 pl-12">
               <div class="bg-white rounded-lg border border-slate-200 p-3 shadow-sm">
                 <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
-                  <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <i data-lucide="package" class="w-3.5 h-3.5 text-blue-500"></i> Itens da SC (${sc.itens.length})
-                  </span>
+                  <div class="flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <i data-lucide="package" class="w-3.5 h-3.5 text-blue-500"></i> Itens da SC (${sc.itens.length})
+                    </span>
+                    <span class="text-[11px] text-slate-500">Data Aprovação: <strong>${formatDateOnly(sc.dataAprovacaoStr)}</strong></span>
+                    ${sc.numPedido ? `<span class="text-[11px] text-slate-500">Data Emissão Pedido: <strong>${formatDateOnly(sc.dataEmissaoPedidoStr)}</strong></span>` : ''}
+                  </div>
                   ${sc.observacao ? `<span class="text-[11px] text-slate-500 italic">Obs: ${sc.observacao}</span>` : ''}
                 </div>
                 <table class="w-full text-left text-xs">
@@ -945,13 +1206,13 @@
         const isSemPedido = !sc.numPedido;
         const noPrazo3M = sc.dataCadastro && sc.dataCadastro >= limite90Dias;
         return isSemPedido && noPrazo3M;
-      }).sort((a, b) => b.dias - a.dias);
+      }).sort((a, b) => b.tempoSC - a.tempoSC);
 
       document.getElementById("badgeQtdPendencias3M").innerText = pendentes3M.length;
       const tbody = document.getElementById("tabelaPendencias3M");
 
       if (pendentes3M.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" class="text-center py-8 text-slate-400">Nenhuma pendência sem pedido nos últimos 3 meses.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="12" class="text-center py-8 text-slate-400">Nenhuma pendência sem pedido nos últimos 3 meses.</td></tr>`;
         return;
       }
 
@@ -974,9 +1235,10 @@
             <td class="py-3 px-3 font-bold text-slate-800">#${sc.codSC}</td>
             <td class="py-3 px-3 text-slate-600">${formatDateOnly(sc.dataCadastroStr)}</td>
             <td class="py-3 px-3 font-medium text-slate-700">${formatDateOnly(sc.dataNecessidadeStr)}</td>
-            <td class="py-3 px-3">
-              <span class="px-2 py-0.5 rounded text-xs font-bold ${sc.dias > 15 ? 'bg-rose-600 text-white' : 'bg-amber-100 text-amber-800'}">
-                ${sc.dias} dias
+            <td class="py-3 px-3 text-center"><span class="font-mono bg-slate-100 px-2 py-0.5 rounded font-semibold text-slate-700">${sc.tempoSC}d</span></td>
+            <td class="py-3 px-3 text-center">
+              <span class="px-2 py-0.5 rounded text-xs font-bold ${sc.slaPC > 15 ? 'bg-rose-600 text-white' : 'bg-amber-100 text-amber-800'}">
+                ${sc.slaPC !== null ? sc.slaPC + ' dias' : '-'}
               </span>
             </td>
             <td class="py-3 px-3"><span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-semibold">${sc.situacao || '-'}</span></td>
@@ -1000,9 +1262,9 @@
       limite90Dias.setDate(hoje.getDate() - 90);
 
       const dados = scArray.filter(sc => !sc.numPedido && sc.dataCadastro >= limite90Dias);
-      let csv = "Codigo SC;Data Cadastro;Data Necessidade;Dias Pendente;Situacao;Destinacao;Tipo Demanda;Solicitante;Valor Estimado;Observacao\n";
+      let csv = "Codigo SC;Data Cadastro;Data Necessidade;Tempo SC (Dias);SLA PC Espera;Situacao;Destinacao;Tipo Demanda;Solicitante;Valor Estimado;Observacao\n";
       dados.forEach(d => {
-        csv += `"${d.codSC}";"${formatDateOnly(d.dataCadastroStr)}";"${formatDateOnly(d.dataNecessidadeStr)}";"${d.dias}";"${d.situacao}";"${d.destinacao}";"${d.tipoDemanda}";"${d.solicitante}";"${d.valorTotal.toFixed(2)}";"${(d.observacao || d.descCompra || '').replace(/"/g, '""')}"\n`;
+        csv += `"${d.codSC}";"${formatDateOnly(d.dataCadastroStr)}";"${formatDateOnly(d.dataNecessidadeStr)}";"${d.tempoSC}";"${d.slaPC || 0}";"${d.situacao}";"${d.destinacao}";"${d.tipoDemanda}";"${d.solicitante}";"${d.valorTotal.toFixed(2)}";"${(d.observacao || d.descCompra || '').replace(/"/g, '""')}"\n`;
       });
 
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
