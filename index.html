@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal de Gestão de Compras - Análise de SC</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js & Plugin de Rótulos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <!-- PapaParse para ler o CSV do Google Sheets -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .badge-emergencial { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+    .badge-regularizacao { background-color: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    .badge-normal { background-color: #e0e7ff; color: #3730a3; border: 1px solid #a5b4fc; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- Header / Navbar -->
+  <header class="bg-slate-900 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="bg-blue-600 p-2 rounded-lg">
+          <i data-lucide="shopping-cart" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold leading-tight">Portal de Suprimentos & SCs</h1>
+          <p class="text-xs text-slate-400">Controle de Demanda, Lead Time e Pendências de Compras</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="btnRefresh" onclick="carregarDados()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar Planilha
+        </button>
+        <span id="syncStatus" class="text-xs text-emerald-400 flex items-center gap-1">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Conectado
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Container Principal -->
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- Navegação de Abas -->
+    <div class="flex border-b border-slate-200">
+      <button id="tabDashboardBtn" onclick="trocarAba('dashboard')" class="px-5 py-2.5 font-semibold text-sm border-b-2 border-blue-600 text-blue-600 flex items-center gap-2">
+        <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Visão Geral & Grid de SCs
+      </button>
+      <button id="tabPendenciasBtn" onclick="trocarAba('pendencias')" class="px-5 py-2.5 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4"></i> Pendências (Últimos 3 Meses)
+        <span id="badgeQtdPendencias3M" class="bg-rose-100 text-rose-700 text-xs px-2 py-0.5 rounded-full font-bold ml-1">0</span>
+      </button>
+    </div>
+
+    <!-- Filtros Globais -->
+    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-4 items-center justify-between">
+      <div class="flex flex-wrap gap-3 items-center">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Mês de Referência</label>
+          <select id="filtroMes" onchange="aplicarFiltros()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-blue-500">
+            <option value="TODOS">Todos os Períodos</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Tipo de Demanda</label>
+          <select id="filtroTipo" onchange="aplicarFiltros()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-blue-500">
+            <option value="TODOS">Todos os Tipos</option>
+            <option value="EMERGENCIAL">Emergencial</option>
+            <option value="REGULARIZACAO">Regularização</option>
+            <option value="NORMAL">Demanda Normal</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">Status da SC</label>
+          <select id="filtroStatus" onchange="aplicarFiltros()" class="text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-medium focus:ring-2 focus:ring-blue-500">
+            <option value="TODOS">Todas as SCs</option>
+            <option value="PENDENTE">Apenas Pendentes (Sem Pedido)</option>
+            <option value="ATENDIDA">Com Pedido Gerado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="w-full md:w-64">
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Busca Rápida</label>
+        <div class="relative">
+          <input type="text" id="campoBusca" onkeyup="aplicarFiltros()" placeholder="Nº SC, solicitante, produto..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEÇÃO 1: DASHBOARD E GRID -->
+    <div id="secaoDashboard" class="space-y-6">
+      
+      <!-- Totalizadores / KPIs -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div class="p-3 bg-blue-50 rounded-lg text-blue-600">
+            <i data-lucide="file-text" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 font-medium">Volume de SCs</p>
+            <h3 id="kpiVolume" class="text-2xl font-bold text-slate-800">0</h3>
+            <span id="kpiVolumeSub" class="text-[11px] text-slate-400">Total cadastrado</span>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div class="p-3 bg-emerald-50 rounded-lg text-emerald-600">
+            <i data-lucide="dollar-sign" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 font-medium">Valor Total SCs</p>
+            <h3 id="kpiValorTotal" class="text-2xl font-bold text-slate-800">R$ 0,00</h3>
+            <span id="kpiValorSub" class="text-[11px] text-slate-400">Total aprovado</span>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div class="p-3 bg-amber-50 rounded-lg text-amber-600">
+            <i data-lucide="clock" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 font-medium">Média Dias Geração Pedido</p>
+            <h3 id="kpiMediaDias" class="text-2xl font-bold text-slate-800">0 dias</h3>
+            <span class="text-[11px] text-slate-400">SC até emissão de Pedido</span>
+          </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div class="p-3 bg-rose-50 rounded-lg text-rose-600">
+            <i data-lucide="alert-circle" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 font-medium">Pendências (Sem Pedido)</p>
+            <h3 id="kpiPendencias" class="text-2xl font-bold text-slate-800">0</h3>
+            <span id="kpiPendenciasPerc" class="text-[11px] text-rose-500 font-medium">0% do período</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gráficos -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Gráfico 1: Tipo de Demanda (Volume e %) -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+            <i data-lucide="pie-chart" class="w-4 h-4 text-blue-500"></i> Tipos de Demanda (Volume & %)
+          </h4>
+          <div class="relative h-64 flex items-center justify-center">
+            <canvas id="chartTipoDemanda"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 2: Evolução Mensal (Volume vs Pendências) -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm lg:col-span-2">
+          <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-500"></i> Comparativo Mensal (Volume, Pendências e Média de Dias)
+          </h4>
+          <div class="relative h-64">
+            <canvas id="chartEvolucao"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid Principal Master-Detail -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+          <div>
+            <h3 class="text-sm font-bold text-slate-800">Solicitações de Compras (SCs)</h3>
+            <p class="text-xs text-slate-500">Clique em uma linha para expandir e ver os itens da SC</p>
+          </div>
+          <span id="contadorRegistros" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-semibold">
+            0 SCs
+          </span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-slate-100 text-slate-600 font-semibold uppercase tracking-wider text-[11px] border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-4 w-10"></th>
+                <th class="py-3 px-4">Cód. SC</th>
+                <th class="py-3 px-4">Data Cadastro</th>
+                <th class="py-3 px-4">Solicitante</th>
+                <th class="py-3 px-4">Tipo Demanda</th>
+                <th class="py-3 px-4">Nº Pedido</th>
+                <th class="py-3 px-4">Status Pedido</th>
+                <th class="py-3 px-4 text-center">Dias (SLA / Espera)</th>
+                <th class="py-3 px-4 text-right">Valor Total SC</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaMasterSC" class="divide-y divide-slate-100">
+              <tr>
+                <td colspan="9" class="text-center py-8 text-slate-400">Carregando dados da planilha...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SEÇÃO 2: HISTÓRICO DE PENDÊNCIAS (ÚLTIMOS 3 MESES) -->
+    <div id="secaoPendencias" class="space-y-6 hidden">
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+        <i data-lucide="info" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
+        <div>
+          <h4 class="text-sm font-bold text-amber-900">Histórico de Pendências Recentes</h4>
+          <p class="text-xs text-amber-800">
+            Abaixo estão listadas todas as SCs criadas nos últimos 90 dias que <strong>ainda não tiveram Pedido de Compra gerado</strong>, incluindo o tempo de atraso e as observações preenchidas para atuação da equipe de suprimentos.
+          </p>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+          <h3 class="text-sm font-bold text-slate-800">SCs Sem Pedido nos Últimos 3 Meses</h3>
+          <button onclick="exportarCSVPendencias()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5 border border-slate-300">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar Pendências
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead class="bg-rose-50 text-rose-900 font-semibold uppercase tracking-wider text-[11px] border-b border-rose-200">
+              <tr>
+                <th class="py-3 px-4">Cód. SC</th>
+                <th class="py-3 px-4">Data Abertura</th>
+                <th class="py-3 px-4">Dias Pendente</th>
+                <th class="py-3 px-4">Tipo</th>
+                <th class="py-3 px-4">Solicitante</th>
+                <th class="py-3 px-4">Qtd Itens</th>
+                <th class="py-3 px-4">Valor Estimado</th>
+                <th class="py-3 px-4 w-1/3">Observação / Justificativa</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaPendencias3M" class="divide-y divide-slate-100">
+              <!-- Preenchido via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSfn6Ra2r7-hXrKjkSl1BVdZm57NEjZ4jH85aWrIZAnwoTTUaAx4Km2596IZceVqfLB--P7IKZV4Em3/pub?gid=1842816317&single=true&output=csv";
+
+    // Estado da aplicação
+    let scMap = new Map(); // Agrupamento por Código SC
+    let scArray = [];
+    let chartTipo = null;
+    let chartEvo = null;
+
+    // Inicialização
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      carregarDados();
+    });
+
+    function trocarAba(aba) {
+      const secaoDash = document.getElementById("secaoDashboard");
+      const secaoPend = document.getElementById("secaoPendencias");
+      const tabDash = document.getElementById("tabDashboardBtn");
+      const tabPend = document.getElementById("tabPendenciasBtn");
+
+      if (aba === 'dashboard') {
+        secaoDash.classList.remove("hidden");
+        secaoPend.classList.add("hidden");
+        tabDash.className = "px-5 py-2.5 font-semibold text-sm border-b-2 border-blue-600 text-blue-600 flex items-center gap-2";
+        tabPend.className = "px-5 py-2.5 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2";
+      } else {
+        secaoDash.classList.add("hidden");
+        secaoPend.classList.remove("hidden");
+        tabDash.className = "px-5 py-2.5 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2";
+        tabPend.className = "px-5 py-2.5 font-semibold text-sm border-b-2 border-blue-600 text-blue-600 flex items-center gap-2";
+      }
+      lucide.createIcons();
+    }
+
+    // Auxiliares de Datas e Formatações
+    function parseDate(dateStr) {
+      if (!dateStr || dateStr.trim() === "") return null;
+      // Formato DD/MM/YYYY HH:MM:SS ou DD/MM/YYYY
+      const parts = dateStr.trim().split(" ");
+      const dmy = parts[0].split("/");
+      if (dmy.length === 3) {
+        const dia = parseInt(dmy[0], 10);
+        const mes = parseInt(dmy[1], 10) - 1;
+        const ano = parseInt(dmy[2], 10);
+        if (parts[1]) {
+          const hms = parts[1].split(":");
+          return new Date(ano, mes, dia, hms[0] || 0, hms[1] || 0, hms[2] || 0);
+        }
+        return new Date(ano, mes, dia);
+      }
+      return null;
+    }
+
+    function parseValor(valorStr) {
+      if (!valorStr) return 0;
+      if (typeof valorStr === 'number') return valorStr;
+      let clean = valorStr.replace("R$", "").replace(/\s/g, "").replace(/\./g, "").replace(",", ".");
+      let num = parseFloat(clean);
+      return isNaN(num) ? 0 : num;
+    }
+
+    function formatMoeda(val) {
+      return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function classificarDemanda(tipoCompra, descCompra, obs) {
+      const texto = ((tipoCompra || "") + " " + (descCompra || "") + " " + (obs || "")).toUpperCase();
+      if (texto.includes("EMERGENCIAL")) return "EMERGENCIAL";
+      if (texto.includes("REGULARIZA") || texto.includes("REGULARIZAÇÃO")) return "REGULARIZACAO";
+      return "NORMAL";
+    }
+
+    // Carregamento de Dados com PapaParse
+    function carregarDados() {
+      const btn = document.getElementById("btnRefresh");
+      btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Carregando...`;
+      lucide.createIcons();
+
+      Papa.parse(CSV_URL, {
+        download: true,
+        header: false,
+        skipEmptyLines: true,
+        complete: function(results) {
+          processarLinhas(results.data);
+          btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar Planilha`;
+          lucide.createIcons();
+        },
+        error: function(err) {
+          console.error("Erro ao carregar CSV:", err);
+          alert("Não foi possível carregar a planilha diretamente. Verifique as permissões de compartilhamento.");
+          btn.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-500"></i> Falha ao carregar`;
+          lucide.createIcons();
+        }
+      });
+    }
+
+    function processarLinhas(linhas) {
+      if (!linhas || linhas.length < 2) return;
+
+      const header = linhas[0];
+      const dados = linhas.slice(1);
+      scMap.clear();
+
+      dados.forEach(r => {
+        const codSC = (r[0] || "").trim();
+        if (!codSC) return;
+
+        const descCompra = r[2] || "";
+        const dataCadastroStr = r[3] || "";
+        const dataCadastro = parseDate(dataCadastroStr);
+        const solicitante = r[6] || "";
+        const produto = r[12] || "";
+        const qtdAprovada = parseFloat(r[14]) || 1;
+        const vlrTotalItem = parseValor(r[16]) || parseValor(r[52]) || parseValor(r[66]) || 0;
+        const obsSC = r[21] || r[69] || "";
+        const tipoCompra = r[25] || "";
+        const numPedido = (r[56] || "").trim();
+        const statusPedido = (r[58] || (numPedido ? "PEDIDO GERADO" : "PENDENTE DE PEDIDO")).trim();
+        const dataEmissaoPedidoStr = r[59] || "";
+        const dataEmissaoPedido = parseDate(dataEmissaoPedidoStr);
+        const fornecedor = r[39] || r[67] || "Não Definido";
+
+        const tipoDemanda = classificarDemanda(tipoCompra, descCompra, obsSC);
+
+        if (!scMap.has(codSC)) {
+          scMap.set(codSC, {
+            codSC,
+            descCompra,
+            dataCadastro,
+            dataCadastroStr,
+            solicitante,
+            tipoDemanda,
+            tipoCompra,
+            numPedido,
+            statusPedido,
+            dataEmissaoPedido,
+            dataEmissaoPedidoStr,
+            observacao: obsSC,
+            valorTotal: 0,
+            itens: []
+          });
+        }
+
+        const sc = scMap.get(codSC);
+        sc.valorTotal += vlrTotalItem;
+        sc.itens.push({
+          produto,
+          quantidade: qtdAprovada,
+          valorTotal: vlrTotalItem,
+          fornecedor,
+          status: statusPedido
+        });
+
+        // Se houver pedido emitido em alguma linha do item
+        if (numPedido && !sc.numPedido) {
+          sc.numPedido = numPedido;
+          sc.statusPedido = statusPedido;
+          sc.dataEmissaoPedido = dataEmissaoPedido;
+          sc.dataEmissaoPedidoStr = dataEmissaoPedidoStr;
+        }
+      });
+
+      // Cálculo de SLA / Dias
+      const hoje = new Date();
+      scArray = Array.from(scMap.values()).map(sc => {
+        let dias = 0;
+        if (sc.dataCadastro) {
+          if (sc.numPedido && sc.dataEmissaoPedido) {
+            dias = Math.max(0, Math.round((sc.dataEmissaoPedido - sc.dataCadastro) / (1000 * 60 * 60 * 24)));
+          } else {
+            dias = Math.max(0, Math.round((hoje - sc.dataCadastro) / (1000 * 60 * 60 * 24)));
+          }
+        }
+        return { ...sc, dias };
+      });
+
+      popularSeletorMeses();
+      aplicarFiltros();
+      renderizarPendencias3M();
+    }
+
+    function popularSeletorMeses() {
+      const select = document.getElementById("filtroMes");
+      const mesesSet = new Set();
+
+      scArray.forEach(sc => {
+        if (sc.dataCadastro) {
+          const ano = sc.dataCadastro.getFullYear();
+          const mes = String(sc.dataCadastro.getMonth() + 1).padStart(2, '0');
+          mesesSet.add(`${ano}-${mes}`);
+        }
+      });
+
+      const mesesOrdenados = Array.from(mesesSet).sort().reverse();
+      select.innerHTML = '<option value="TODOS">Todos os Períodos</option>';
+      mesesOrdenados.forEach(m => {
+        const [ano, mes] = m.split("-");
+        const dt = new Date(ano, parseInt(mes) - 1, 1);
+        const rotulo = dt.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        select.innerHTML += `<option value="${m}">${rotulo.charAt(0).toUpperCase() + rotulo.slice(1)}</option>`;
+      });
+    }
+
+    function aplicarFiltros() {
+      const mesSel = document.getElementById("filtroMes").value;
+      const tipoSel = document.getElementById("filtroTipo").value;
+      const statusSel = document.getElementById("filtroStatus").value;
+      const busca = document.getElementById("campoBusca").value.toLowerCase().trim();
+
+      const filtrados = scArray.filter(sc => {
+        if (mesSel !== "TODOS" && sc.dataCadastro) {
+          const chaveMes = `${sc.dataCadastro.getFullYear()}-${String(sc.dataCadastro.getMonth() + 1).padStart(2, '0')}`;
+          if (chaveMes !== mesSel) return false;
+        }
+
+        if (tipoSel !== "TODOS" && sc.tipoDemanda !== tipoSel) return false;
+
+        const isPendente = !sc.numPedido || sc.statusPedido.toUpperCase().includes("PENDENTE");
+        if (statusSel === "PENDENTE" && !isPendente) return false;
+        if (statusSel === "ATENDIDA" && isPendente) return false;
+
+        if (busca) {
+          const texto = (sc.codSC + " " + sc.solicitante + " " + sc.descCompra + " " + sc.itens.map(i => i.produto).join(" ")).toLowerCase();
+          if (!texto.includes(busca)) return false;
+        }
+
+        return true;
+      });
+
+      atualizarKPIs(filtrados);
+      renderizarGraficos(filtrados);
+      renderizarGridMaster(filtrados);
+    }
+
+    function atualizarKPIs(dados) {
+      const vol = dados.length;
+      const vlrTotal = dados.reduce((acc, cur) => acc + cur.valorTotal, 0);
+
+      const emitidas = dados.filter(sc => sc.numPedido && sc.dataEmissaoPedido);
+      const mediaDias = emitidas.length > 0 
+        ? Math.round(emitidas.reduce((acc, cur) => acc + cur.dias, 0) / emitidas.length)
+        : 0;
+
+      const pendentes = dados.filter(sc => !sc.numPedido);
+      const percPend = vol > 0 ? ((pendentes.length / vol) * 100).toFixed(1) : 0;
+
+      document.getElementById("kpiVolume").innerText = vol;
+      document.getElementById("kpiValorTotal").innerText = formatMoeda(vlrTotal);
+      document.getElementById("kpiMediaDias").innerText = `${mediaDias} dias`;
+      document.getElementById("kpiPendencias").innerText = pendentes.length;
+      document.getElementById("kpiPendenciasPerc").innerText = `${percPend}% das SCs do período`;
+      document.getElementById("contadorRegistros").innerText = `${vol} SCs encontradas`;
+    }
+
+    function renderizarGraficos(dados) {
+      // 1. Gráfico Tipo Demanda (Volume e %)
+      const tiposCount = { EMERGENCIAL: 0, REGULARIZACAO: 0, NORMAL: 0 };
+      dados.forEach(sc => tiposCount[sc.tipoDemanda]++);
+
+      const ctxTipo = document.getElementById("chartTipoDemanda").getContext("2d");
+      if (chartTipo) chartTipo.destroy();
+
+      const totalTipos = dados.length || 1;
+      chartTipo = new Chart(ctxTipo, {
+        type: 'doughnut',
+        data: {
+          labels: ['Emergencial', 'Regularização', 'Demanda Normal'],
+          datasets: [{
+            data: [tiposCount.EMERGENCIAL, tiposCount.REGULARIZACAO, tiposCount.NORMAL],
+            backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6'],
+            borderWidth: 2
+          }]
+        },
+        plugins: [ChartDataLabels],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+            datalabels: {
+              formatter: (value) => {
+                if (!value) return '';
+                const pct = ((value / totalTipos) * 100).toFixed(1);
+                return `${value} (${pct}%)`;
+              },
+              color: '#fff',
+              font: { weight: 'bold', size: 11 }
+            }
+          }
+        }
+      });
+
+      // 2. Gráfico Mensal (Volume, Pendências e Média Dias)
+      const mesesMap = {};
+      scArray.forEach(sc => {
+        if (!sc.dataCadastro) return;
+        const chave = `${sc.dataCadastro.getFullYear()}-${String(sc.dataCadastro.getMonth() + 1).padStart(2, '0')}`;
+        if (!mesesMap[chave]) {
+          mesesMap[chave] = { total: 0, pendentes: 0, diasTotal: 0, emitidas: 0 };
+        }
+        mesesMap[chave].total++;
+        if (!sc.numPedido) {
+          mesesMap[chave].pendentes++;
+        } else {
+          mesesMap[chave].emitidas++;
+          mesesMap[chave].diasTotal += sc.dias;
+        }
+      });
+
+      const mesesKeys = Object.keys(mesesMap).sort();
+      const labelsMes = mesesKeys.map(m => {
+        const [a, mes] = m.split("-");
+        return `${mes}/${a}`;
+      });
+      const volMes = mesesKeys.map(k => mesesMap[k].total);
+      const pendMes = mesesKeys.map(k => mesesMap[k].pendentes);
+      const mediaDiasMes = mesesKeys.map(k => mesesMap[k].emitidas > 0 ? Math.round(mesesMap[k].diasTotal / mesesMap[k].emitidas) : 0);
+
+      const ctxEvo = document.getElementById("chartEvolucao").getContext("2d");
+      if (chartEvo) chartEvo.destroy();
+
+      chartEvo = new Chart(ctxEvo, {
+        type: 'bar',
+        data: {
+          labels: labelsMes,
+          datasets: [
+            {
+              type: 'bar',
+              label: 'Total de SCs',
+              data: volMes,
+              backgroundColor: '#93c5fd',
+              borderRadius: 4
+            },
+            {
+              type: 'bar',
+              label: 'SCs Pendentes',
+              data: pendMes,
+              backgroundColor: '#fca5a5',
+              borderRadius: 4
+            },
+            {
+              type: 'line',
+              label: 'Média Dias p/ Pedido',
+              data: mediaDiasMes,
+              borderColor: '#f59e0b',
+              backgroundColor: '#f59e0b',
+              borderWidth: 2,
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Quantidade SCs' } },
+            y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Média de Dias' } }
+          },
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    function renderizarGridMaster(dados) {
+      const tbody = document.getElementById("tabelaMasterSC");
+      if (dados.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400">Nenhuma solicitação encontrada com os filtros selecionados.</td></tr>`;
+        return;
+      }
+
+      let html = "";
+      dados.forEach(sc => {
+        const isPendente = !sc.numPedido;
+        const badgeDemanda = sc.tipoDemanda === "EMERGENCIAL" 
+          ? `<span class="badge-emergencial px-2 py-0.5 rounded text-[10px] font-bold">EMERGENCIAL</span>`
+          : sc.tipoDemanda === "REGULARIZACAO"
+          ? `<span class="badge-regularizacao px-2 py-0.5 rounded text-[10px] font-bold">REGULARIZAÇÃO</span>`
+          : `<span class="badge-normal px-2 py-0.5 rounded text-[10px] font-bold">NORMAL</span>`;
+
+        const badgeStatus = isPendente
+          ? `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Pendente Pedido</span>`
+          : `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ${sc.statusPedido || 'Pedido Atendido'}</span>`;
+
+        const badgeDias = isPendente
+          ? `<span class="font-bold text-rose-600">${sc.dias} dias aberto</span>`
+          : `<span class="text-slate-600 font-medium">${sc.dias} dias até pedido</span>`;
+
+        html += `
+          <tr class="hover:bg-slate-50 cursor-pointer transition border-b border-slate-100" onclick="toggleDetalhes('${sc.codSC}')">
+            <td class="py-3 px-4 text-center">
+              <i id="icon-exp-${sc.codSC}" data-lucide="chevron-right" class="w-4 h-4 text-slate-400 transition-transform"></i>
+            </td>
+            <td class="py-3 px-4 font-bold text-blue-600">#${sc.codSC}</td>
+            <td class="py-3 px-4 text-slate-500">${sc.dataCadastroStr || '-'}</td>
+            <td class="py-3 px-4 font-medium text-slate-700">${sc.solicitante || '-'}</td>
+            <td class="py-3 px-4">${badgeDemanda}</td>
+            <td class="py-3 px-4 font-mono font-medium">${sc.numPedido || '<span class="text-slate-400">---</span>'}</td>
+            <td class="py-3 px-4">${badgeStatus}</td>
+            <td class="py-3 px-4 text-center">${badgeDias}</td>
+            <td class="py-3 px-4 text-right font-semibold text-slate-800">${formatMoeda(sc.valorTotal)}</td>
+          </tr>
+
+          <!-- Linha de Detalhes dos Itens -->
+          <tr id="detalhe-${sc.codSC}" class="hidden bg-slate-50/70 border-b border-slate-200">
+            <td colspan="9" class="p-4 pl-12">
+              <div class="bg-white rounded-lg border border-slate-200 p-3 shadow-sm">
+                <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
+                  <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <i data-lucide="package" class="w-3.5 h-3.5 text-blue-500"></i> Itens da Solicitação (${sc.itens.length})
+                  </span>
+                  ${sc.observacao ? `<span class="text-[11px] text-slate-500 italic">Obs: ${sc.observacao}</span>` : ''}
+                </div>
+                <table class="w-full text-left text-xs">
+                  <thead class="text-[10px] text-slate-400 uppercase font-semibold">
+                    <tr>
+                      <th class="py-1 px-2">Descrição do Produto / Serviço</th>
+                      <th class="py-1 px-2 text-center">Qtd.</th>
+                      <th class="py-1 px-2">Fornecedor</th>
+                      <th class="py-1 px-2 text-right">Valor Total</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    ${sc.itens.map(it => `
+                      <tr>
+                        <td class="py-1.5 px-2 font-medium text-slate-700">${it.produto}</td>
+                        <td class="py-1.5 px-2 text-center">${it.quantidade}</td>
+                        <td class="py-1.5 px-2 text-slate-500">${it.fornecedor}</td>
+                        <td class="py-1.5 px-2 text-right font-semibold text-slate-700">${formatMoeda(it.valorTotal)}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function toggleDetalhes(codSC) {
+      const row = document.getElementById(`detalhe-${codSC}`);
+      const icon = document.getElementById(`icon-exp-${codSC}`);
+      if (!row) return;
+
+      if (row.classList.contains("hidden")) {
+        row.classList.remove("hidden");
+        icon.classList.add("rotate-90");
+      } else {
+        row.classList.add("hidden");
+        icon.classList.remove("rotate-90");
+      }
+    }
+
+    // Renderização do Histórico de Pendências (Últimos 3 Meses)
+    function renderizarPendencias3M() {
+      const hoje = new Date();
+      const limite90Dias = new Date();
+      limite90Dias.setDate(hoje.getDate() - 90);
+
+      const pendentes3M = scArray.filter(sc => {
+        const isSemPedido = !sc.numPedido;
+        const noPrazo3M = sc.dataCadastro && sc.dataCadastro >= limite90Dias;
+        return isSemPedido && noPrazo3M;
+      }).sort((a, b) => b.dias - a.dias); // Mais antigas primeiro
+
+      document.getElementById("badgeQtdPendencias3M").innerText = pendentes3M.length;
+      const tbody = document.getElementById("tabelaPendencias3M");
+
+      if (pendentes3M.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400">Excelente! Nenhuma pendência sem pedido nos últimos 3 meses.</td></tr>`;
+        return;
+      }
+
+      let html = "";
+      pendentes3M.forEach(sc => {
+        const badgeDemanda = sc.tipoDemanda === "EMERGENCIAL" 
+          ? `<span class="badge-emergencial px-2 py-0.5 rounded text-[10px] font-bold">EMERGENCIAL</span>`
+          : sc.tipoDemanda === "REGULARIZACAO"
+          ? `<span class="badge-regularizacao px-2 py-0.5 rounded text-[10px] font-bold">REGULARIZAÇÃO</span>`
+          : `<span class="badge-normal px-2 py-0.5 rounded text-[10px] font-bold">NORMAL</span>`;
+
+        html += `
+          <tr class="hover:bg-rose-50/40 transition">
+            <td class="py-3 px-4 font-bold text-slate-800">#${sc.codSC}</td>
+            <td class="py-3 px-4 text-slate-600">${sc.dataCadastroStr || '-'}</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded text-xs font-bold ${sc.dias > 15 ? 'bg-rose-600 text-white' : 'bg-amber-100 text-amber-800'}">
+                ${sc.dias} dias
+              </span>
+            </td>
+            <td class="py-3 px-4">${badgeDemanda}</td>
+            <td class="py-3 px-4 font-medium text-slate-700">${sc.solicitante}</td>
+            <td class="py-3 px-4 text-slate-600">${sc.itens.length} itens</td>
+            <td class="py-3 px-4 font-semibold text-slate-800">${formatMoeda(sc.valorTotal)}</td>
+            <td class="py-3 px-4 text-slate-600 text-xs italic">${sc.observacao || sc.descCompra || 'Sem observações registradas'}</td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function exportarCSVPendencias() {
+      const hoje = new Date();
+      const limite90Dias = new Date();
+      limite90Dias.setDate(hoje.getDate() - 90);
+
+      const dados = scArray.filter(sc => !sc.numPedido && sc.dataCadastro >= limite90Dias);
+      let csv = "Codigo SC;Data Abertura;Dias Pendente;Tipo Demanda;Solicitante;Valor Estimado;Observacao\n";
+      dados.forEach(d => {
+        csv += `"${d.codSC}";"${d.dataCadastroStr}";"${d.dias}";"${d.tipoDemanda}";"${d.solicitante}";"${d.valorTotal.toFixed(2)}";"${(d.observacao || d.descCompra || '').replace(/"/g, '""')}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `pendencias_sc_ultimos_3_meses_${new Date().toISOString().slice(0,10)}.csv`);
+      link.click();
+    }
+  </script>
+</body>
+</html>
