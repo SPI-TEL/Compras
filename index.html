@@ -20,14 +20,14 @@
     body { font-family: 'Inter', sans-serif; }
     
     /* Badges de Tipo de Demanda */
-    .badge-emergencial { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
-    .badge-regularizacao { background-color: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
-    .badge-normal { background-color: #e0e7ff; color: #3730a3; border: 1px solid #a5b4fc; }
+    .badge-emergencial { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; white-space: nowrap; }
+    .badge-regularizacao { background-color: #fef3c7; color: #92400e; border: 1px solid #fcd34d; white-space: nowrap; }
+    .badge-normal { background-color: #e0e7ff; color: #3730a3; border: 1px solid #a5b4fc; white-space: nowrap; }
 
     /* Badges de Destinação */
-    .badge-fatura-a { background-color: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; }
-    .badge-fatura-b { background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
-    .badge-estoque { background-color: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; }
+    .badge-fatura-a { background-color: #f3e8ff; color: #6b21a8; border: 1px solid #d8b4fe; white-space: nowrap; }
+    .badge-fatura-b { background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; white-space: nowrap; }
+    .badge-estoque { background-color: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; white-space: nowrap; }
 
     /* Scrollbar personalizada */
     .custom-scroll::-webkit-scrollbar { width: 5px; }
@@ -342,8 +342,8 @@
                 <th class="py-3 px-3">Destinação</th>
                 <th class="py-3 px-3">Tipo Demanda</th>
                 <th class="py-3 px-3">Solicitante</th>
-                <th class="py-3 px-3">Qtd Itens</th>
-                <th class="py-3 px-3">Valor Estimado</th>
+                <th class="py-3 px-3 text-center">Qtd Itens</th>
+                <th class="py-3 px-3 text-right">Valor Estimado</th>
                 <th class="py-3 px-3 w-1/4">Observação / Justificativa</th>
               </tr>
             </thead>
@@ -629,13 +629,11 @@
       // Cálculo de Tempos
       const hoje = new Date();
       scArray = Array.from(scMap.values()).map(sc => {
-        // Tempo SC: cadastro até a data atual
         let tempoSC = 0;
         if (sc.dataCadastro) {
           tempoSC = Math.max(0, Math.round((hoje - sc.dataCadastro) / (1000 * 60 * 60 * 24)));
         }
 
-        // SLA PC: aprovação até a emissão do pedido (ou até hoje se pendente)
         let slaPC = null;
         let baseAprovacao = sc.dataAprovacao || sc.dataCadastro;
 
@@ -874,10 +872,6 @@
       const vol = dados.length;
       const vlrTotal = dados.reduce((acc, cur) => acc + cur.valorTotal, 0);
 
-      // CÁLCULO DO SLA PC DO PERÍODO SELECIONADO:
-      // Se houver pedidos emitidos, considera o SLA das emitidas;
-      // Se todas as SCs forem pendentes (como as 41 SCs de nov/2026), calcula a média dos dias pendentes de espera!
-      const scValidasPeriodo = dados.filter(sc => sc.slaPC !== null);
       const emitidasPeriodo = dados.filter(sc => sc.numPedido && sc.slaPC !== null);
       const pendentesPeriodo = dados.filter(sc => !sc.numPedido && sc.slaPC !== null);
 
@@ -885,11 +879,9 @@
       if (emitidasPeriodo.length > 0) {
         mediaSlaPeriodo = Math.round(emitidasPeriodo.reduce((acc, cur) => acc + cur.slaPC, 0) / emitidasPeriodo.length);
       } else if (pendentesPeriodo.length > 0) {
-        // Quando 100% das SCs são pendentes
         mediaSlaPeriodo = Math.round(pendentesPeriodo.reduce((acc, cur) => acc + cur.slaPC, 0) / pendentesPeriodo.length);
       }
 
-      // CÁLCULO DO SLA PC GERAL (TODAS AS SCS DA BASE HISTÓRICA COMPLETA)
       const todasEmitidasGeral = scArray.filter(sc => sc.numPedido && sc.slaPC !== null);
       const mediaSlaGeral = todasEmitidasGeral.length > 0
         ? Math.round(todasEmitidasGeral.reduce((acc, cur) => acc + cur.slaPC, 0) / todasEmitidasGeral.length)
@@ -901,7 +893,6 @@
       document.getElementById("kpiVolume").innerText = vol;
       document.getElementById("kpiValorTotal").innerText = formatMoeda(vlrTotal);
       
-      // Card Média SLA PC com Média Geral abaixo
       document.getElementById("kpiMediaDias").innerText = `${mediaSlaPeriodo} dias`;
       document.getElementById("kpiMediaSlaGeral").innerText = `Média SLA Geral: ${mediaSlaGeral} dias`;
 
@@ -1000,7 +991,7 @@
       });
     }
 
-    // Gráfico 3: Comparativo Mensal de Demanda (com cálculo correto para meses com pendências)
+    // Gráfico 3: Comparativo Mensal de Demanda
     function renderizarGraficoEvolucaoMensal() {
       const mesesMap = {};
       scArray.forEach(sc => {
@@ -1028,7 +1019,6 @@
       const volMes = mesesKeys.map(k => mesesMap[k].total);
       const pendMes = mesesKeys.map(k => mesesMap[k].pendentes);
 
-      // Se o mês tiver emitidas, usa a média das emitidas. Se só tiver pendências (ex: mês corrente nov/2026), usa a média de dias pendentes!
       const mediaSlaMes = mesesKeys.map(k => {
         const item = mesesMap[k];
         if (item.emitidas > 0) {
@@ -1126,42 +1116,43 @@
           ? `<span class="badge-regularizacao px-2 py-0.5 rounded text-[10px] font-bold">REGULARIZAÇÃO</span>`
           : `<span class="badge-normal px-2 py-0.5 rounded text-[10px] font-bold">NORMAL</span>`;
 
-        const badgeSituacao = `<span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200">${sc.situacao || '-'}</span>`;
+        const badgeSituacao = `<span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200 whitespace-nowrap">${sc.situacao || '-'}</span>`;
 
         const badgeStatus = isPendente
-          ? `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Pendente</span>`
-          : `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ${sc.statusPedido || 'Gerado'}</span>`;
+          ? `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Pendente</span>`
+          : `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ${sc.statusPedido || 'Gerado'}</span>`;
 
-        // SLA PC Badge
+        // SLA PC Badge com whitespace-nowrap para não quebrar
         const badgeSlaPC = isPendente
-          ? `<span class="font-bold text-rose-600">${sc.slaPC !== null ? sc.slaPC + ' dias (Espera)' : '-'}</span>`
-          : `<span class="text-slate-700 font-medium">${sc.slaPC !== null ? sc.slaPC + ' dias até PC' : '-'}</span>`;
+          ? `<span class="font-bold text-rose-600 whitespace-nowrap text-[11px]">${sc.slaPC !== null ? sc.slaPC + ' dias (Espera)' : '-'}</span>`
+          : `<span class="text-slate-700 font-medium whitespace-nowrap text-[11px]">${sc.slaPC !== null ? sc.slaPC + ' dias até PC' : '-'}</span>`;
 
         // Tempo SC Badge
-        const badgeTempoSC = `<span class="font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded font-semibold text-[11px]">${sc.tempoSC}d</span>`;
+        const badgeTempoSC = `<span class="font-mono text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded font-semibold text-[10px] whitespace-nowrap">${sc.tempoSC}d</span>`;
 
         html += `
           <tr class="hover:bg-slate-50 cursor-pointer transition border-b border-slate-100" onclick="toggleDetalhes('${sc.codSC}')">
-            <td class="py-3 px-3 text-center">
+            <td class="py-2.5 px-3 text-center">
               <i id="icon-exp-${sc.codSC}" data-lucide="chevron-right" class="w-4 h-4 text-slate-400 transition-transform"></i>
             </td>
-            <td class="py-3 px-3 font-bold text-blue-600">#${sc.codSC}</td>
-            <td class="py-3 px-3 text-slate-500">${formatDateOnly(sc.dataCadastroStr)}</td>
-            <td class="py-3 px-3 font-medium text-slate-700">${formatDateOnly(sc.dataNecessidadeStr)}</td>
-            <td class="py-3 px-3 text-center">${badgeTempoSC}</td>
-            <td class="py-3 px-3">${badgeSituacao}</td>
-            <td class="py-3 px-3">${badgeDest}</td>
-            <td class="py-3 px-3">${badgeDemanda}</td>
-            <td class="py-3 px-3 font-medium text-slate-700">${sc.solicitante || '-'}</td>
-            <td class="py-3 px-3 font-mono font-medium">${sc.numPedido || '<span class="text-slate-400">---</span>'}</td>
-            <td class="py-3 px-3">${badgeStatus}</td>
-            <td class="py-3 px-3 text-center">${badgeSlaPC}</td>
-            <td class="py-3 px-3 text-right font-semibold text-slate-800">${formatMoeda(sc.valorTotal)}</td>
+            <td class="py-2.5 px-3 font-bold text-blue-600 whitespace-nowrap">#${sc.codSC}</td>
+            <td class="py-2.5 px-3 text-slate-500 whitespace-nowrap text-[11px]">${formatDateOnly(sc.dataCadastroStr)}</td>
+            <td class="py-2.5 px-3 font-medium text-slate-700 whitespace-nowrap text-[11px]">${formatDateOnly(sc.dataNecessidadeStr)}</td>
+            <td class="py-2.5 px-3 text-center whitespace-nowrap">${badgeTempoSC}</td>
+            <td class="py-2.5 px-3 whitespace-nowrap">${badgeSituacao}</td>
+            <td class="py-2.5 px-3 whitespace-nowrap">${badgeDest}</td>
+            <td class="py-2.5 px-3 whitespace-nowrap">${badgeDemanda}</td>
+            <!-- Solicitante com fonte menor e entrelinha justa -->
+            <td class="py-2.5 px-3 text-[11px] leading-tight font-medium text-slate-700 max-w-[170px]">${sc.solicitante || '-'}</td>
+            <td class="py-2.5 px-3 font-mono font-medium whitespace-nowrap text-[11px]">${sc.numPedido || '<span class="text-slate-400">---</span>'}</td>
+            <td class="py-2.5 px-3 whitespace-nowrap">${badgeStatus}</td>
+            <td class="py-2.5 px-3 text-center whitespace-nowrap">${badgeSlaPC}</td>
+            <td class="py-2.5 px-3 text-right font-semibold text-slate-800 whitespace-nowrap text-[11px]">${formatMoeda(sc.valorTotal)}</td>
           </tr>
 
           <!-- Detalhes dos Itens -->
           <tr id="detalhe-${sc.codSC}" class="hidden bg-slate-50/70 border-b border-slate-200">
-            <td colspan="13" class="p-4 pl-12">
+            <td colspan="13" class="p-3 pl-12">
               <div class="bg-white rounded-lg border border-slate-200 p-3 shadow-sm">
                 <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-100">
                   <div class="flex items-center gap-3">
@@ -1185,10 +1176,10 @@
                   <tbody class="divide-y divide-slate-100">
                     ${sc.itens.map(it => `
                       <tr>
-                        <td class="py-1.5 px-2 font-medium text-slate-700">${it.produto}</td>
-                        <td class="py-1.5 px-2 text-center">${it.quantidade}</td>
-                        <td class="py-1.5 px-2 text-slate-500">${it.fornecedor}</td>
-                        <td class="py-1.5 px-2 text-right font-semibold text-slate-700">${formatMoeda(it.valorTotal)}</td>
+                        <td class="py-1 px-2 font-medium text-slate-700">${it.produto}</td>
+                        <td class="py-1 px-2 text-center">${it.quantidade}</td>
+                        <td class="py-1 px-2 text-slate-500">${it.fornecedor}</td>
+                        <td class="py-1 px-2 text-right font-semibold text-slate-700">${formatMoeda(it.valorTotal)}</td>
                       </tr>
                     `).join('')}
                   </tbody>
@@ -1251,24 +1242,27 @@
           ? `<span class="badge-regularizacao px-2 py-0.5 rounded text-[10px] font-bold">REGULARIZAÇÃO</span>`
           : `<span class="badge-normal px-2 py-0.5 rounded text-[10px] font-bold">NORMAL</span>`;
 
+        // CORREÇÃO DOS DIAS EM VERMELHO: inline-flex, whitespace-nowrap, fonte text-[10px], padding justo e alinhamento centrado
+        const badgeDiasVermelho = sc.slaPC > 15
+          ? `<span class="inline-flex items-center justify-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white shadow-sm leading-none">${sc.slaPC} dias</span>`
+          : `<span class="inline-flex items-center justify-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 leading-none">${sc.slaPC !== null ? sc.slaPC + ' dias' : '-'}</span>`;
+
         html += `
-          <tr class="hover:bg-rose-50/40 transition">
-            <td class="py-3 px-3 font-bold text-slate-800">#${sc.codSC}</td>
-            <td class="py-3 px-3 text-slate-600">${formatDateOnly(sc.dataCadastroStr)}</td>
-            <td class="py-3 px-3 font-medium text-slate-700">${formatDateOnly(sc.dataNecessidadeStr)}</td>
-            <td class="py-3 px-3 text-center"><span class="font-mono bg-slate-100 px-2 py-0.5 rounded font-semibold text-slate-700">${sc.tempoSC}d</span></td>
-            <td class="py-3 px-3 text-center">
-              <span class="px-2 py-0.5 rounded text-xs font-bold ${sc.slaPC > 15 ? 'bg-rose-600 text-white' : 'bg-amber-100 text-amber-800'}">
-                ${sc.slaPC !== null ? sc.slaPC + ' dias' : '-'}
-              </span>
-            </td>
-            <td class="py-3 px-3"><span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-semibold">${sc.situacao || '-'}</span></td>
-            <td class="py-3 px-3">${badgeDest}</td>
-            <td class="py-3 px-3">${badgeDemanda}</td>
-            <td class="py-3 px-3 font-medium text-slate-700">${sc.solicitante}</td>
-            <td class="py-3 px-3 text-slate-600">${sc.itens.length} itens</td>
-            <td class="py-3 px-3 font-semibold text-slate-800">${formatMoeda(sc.valorTotal)}</td>
-            <td class="py-3 px-3 text-slate-600 text-xs italic">${sc.observacao || sc.descCompra || 'Sem observação'}</td>
+          <tr class="hover:bg-rose-50/40 transition border-b border-slate-100">
+            <td class="py-2.5 px-3 font-bold text-slate-800 whitespace-nowrap">#${sc.codSC}</td>
+            <td class="py-2.5 px-3 text-slate-600 whitespace-nowrap text-[11px]">${formatDateOnly(sc.dataCadastroStr)}</td>
+            <td class="py-2.5 px-3 font-medium text-slate-700 whitespace-nowrap text-[11px]">${formatDateOnly(sc.dataNecessidadeStr)}</td>
+            <td class="py-2.5 px-3 text-center whitespace-nowrap"><span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded font-semibold text-slate-700 text-[10px]">${sc.tempoSC}d</span></td>
+            <!-- Dias em Vermelho Perfeitamente Alinhados sem Quebra -->
+            <td class="py-2.5 px-3 text-center whitespace-nowrap">${badgeDiasVermelho}</td>
+            <td class="py-2.5 px-3 whitespace-nowrap"><span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200">${sc.situacao || '-'}</span></td>
+            <td class="py-2.5 px-3 whitespace-nowrap">${badgeDest}</td>
+            <td class="py-2.5 px-3 whitespace-nowrap">${badgeDemanda}</td>
+            <!-- Solicitante com fonte diminuída e alinhamento compacto -->
+            <td class="py-2.5 px-3 text-[11px] leading-tight font-medium text-slate-700 max-w-[160px]">${sc.solicitante}</td>
+            <td class="py-2.5 px-3 text-center text-slate-600 whitespace-nowrap text-[11px]">${sc.itens.length} itens</td>
+            <td class="py-2.5 px-3 text-right font-semibold text-slate-800 whitespace-nowrap text-[11px]">${formatMoeda(sc.valorTotal)}</td>
+            <td class="py-2.5 px-3 text-slate-600 text-[11px] italic leading-tight">${sc.observacao || sc.descCompra || 'Sem observação'}</td>
           </tr>
         `;
       });
