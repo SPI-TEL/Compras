@@ -29,7 +29,7 @@
     .badge-fatura-b { background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
     .badge-estoque { background-color: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; }
 
-    /* Scrollbar personalizada para menus de filtro */
+    /* Scrollbar personalizada */
     .custom-scroll::-webkit-scrollbar { width: 5px; }
     .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -201,6 +201,7 @@
           </div>
         </div>
 
+        <!-- KPI MÉDIA SLA PC COM MÉDIA GERAL ABAIXO -->
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div class="p-3 bg-amber-50 rounded-lg text-amber-600">
             <i data-lucide="clock" class="w-6 h-6"></i>
@@ -208,7 +209,7 @@
           <div>
             <p class="text-xs text-slate-500 font-medium">Média SLA PC</p>
             <h3 id="kpiMediaDias" class="text-2xl font-bold text-slate-800">0 dias</h3>
-            <span class="text-[11px] text-slate-400">Aprovação até Pedido</span>
+            <span id="kpiMediaSlaGeral" class="text-[11px] font-semibold text-slate-500">Média SLA Geral: 0 dias</span>
           </div>
         </div>
 
@@ -366,7 +367,7 @@
     let chartTipo = null;
     let chartEvo = null;
 
-    // Estado dos Filtros com Múltipla Escolha (Set de selecionados)
+    // Estado dos Filtros
     const filtrosState = {
       mes: new Set(),
       situacao: new Set(),
@@ -375,7 +376,6 @@
       status: new Set()
     };
 
-    // Opções disponíveis encontradas nos dados
     const opcoesDisponiveis = {
       mes: [],
       situacao: [],
@@ -466,7 +466,6 @@
       return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    // Regras de Classificação
     function classificarDemandaPorDescricao(descCompra) {
       const desc = (descCompra || "").toUpperCase();
       if (desc.includes("EMERGENCIAL")) return "EMERGENCIAL";
@@ -486,7 +485,7 @@
       return "ESTOQUE";
     }
 
-    // Carregamento de Dados
+    // Carregamento de Dados da Planilha
     function carregarDados() {
       const btn = document.getElementById("btnRefresh");
       btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Sincronizando...`;
@@ -503,7 +502,7 @@
         },
         error: function(err) {
           console.error("Erro:", err);
-          alert("Não foi possível carregar a planilha automaticamente. Verifique se o link público continua ativo.");
+          alert("Não foi possível carregar a planilha automaticamente.");
           btn.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-500"></i> Erro na Conexão`;
           lucide.createIcons();
         }
@@ -528,7 +527,7 @@
       const idxDtNec = findCol("Data Necessidade", 4);
       const idxSolicitante = findCol("Solicitante", 6);
       const idxSituacao = findCol("Situação", 9);
-      const idxDtAprovacao = findCol("Data da Aprovação", 10); // Data da Aprovação
+      const idxDtAprovacao = findCol("Data da Aprovação", 10);
       const idxProduto = findCol("Produto", 12);
       const idxQtdAprov = findCol("Quantidade Aprovada", 14);
       const idxVlrTotalItem = findCol("Vlr. Total Qtd. Aprov.", 16);
@@ -536,7 +535,7 @@
       const idxUtil = findCol("Utilização compra", 26);
       const idxNumPed = findCol("Nº Pedido", 56);
       const idxStatusPed = findCol("Status", 58);
-      // Data do Pedido: procura por Data Emissão de Pedido ou coluna 59/60
+      
       let idxDtEmissaoPed = -1;
       for (let i = idxNumPed; i < Math.min(idxNumPed + 6, header.length); i++) {
         if (header[i] && header[i].toLowerCase().includes("emissão")) {
@@ -545,7 +544,6 @@
         }
       }
       if (idxDtEmissaoPed === -1) idxDtEmissaoPed = 59;
-
       const idxFornec = findCol("Fornecedor", 39);
 
       const situacoesSet = new Set();
@@ -628,20 +626,18 @@
         }
       });
 
-      // Cálculo de Tempos:
-      // 1. Tempo SC = Dias corridos entre Data Cadastro e Data Atual
-      // 2. SLA PC = Dias corridos entre Data Aprovação e Data Pedido (ou até hoje se não emitido)
+      // Cálculo de Tempos
       const hoje = new Date();
       scArray = Array.from(scMap.values()).map(sc => {
-        // Tempo SC
+        // Tempo SC: cadastro até a data atual
         let tempoSC = 0;
         if (sc.dataCadastro) {
           tempoSC = Math.max(0, Math.round((hoje - sc.dataCadastro) / (1000 * 60 * 60 * 24)));
         }
 
-        // SLA PC (Data da Aprovação até Data do Pedido)
+        // SLA PC: aprovação até a emissão do pedido (ou até hoje se pendente)
         let slaPC = null;
-        let baseAprovacao = sc.dataAprovacao || sc.dataCadastro; // Fallback para data de cadastro se aprovação vazia
+        let baseAprovacao = sc.dataAprovacao || sc.dataCadastro;
 
         if (baseAprovacao) {
           if (sc.numPedido && sc.dataEmissaoPedido) {
@@ -660,14 +656,11 @@
         return { ...sc, tempoSC, slaPC };
       });
 
-      // Configurar opções disponíveis
       opcoesDisponiveis.mes = Array.from(mesesSet).sort().reverse();
       opcoesDisponiveis.situacao = Array.from(situacoesSet).sort();
 
-      // Configurar Mês Atual automaticamente
       configurarSelecaoInicialMes();
 
-      // Inicializar todos os checkboxes dos outros filtros como selecionados por padrão
       ['situacao', 'destinacao', 'tipo', 'status'].forEach(campo => {
         filtrosState[campo] = new Set(opcoesDisponiveis[campo]);
       });
@@ -682,11 +675,9 @@
       const mesAtualKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
 
       filtrosState.mes.clear();
-      // Se o mês atual do calendário existir nos dados, seleciona ele
       if (opcoesDisponiveis.mes.includes(mesAtualKey)) {
         filtrosState.mes.add(mesAtualKey);
       } else if (opcoesDisponiveis.mes.length > 0) {
-        // Caso a base não tenha o mês atual de calendário, seleciona o mês mais recente disponível
         filtrosState.mes.add(opcoesDisponiveis.mes[0]);
       }
     }
@@ -784,11 +775,11 @@
 
     function atualizarLabelsBotoes() {
       const labelsFormat = {
-        mes: { singular: 'mês', plural: 'meses', total: opcoesDisponiveis.mes.length },
-        situacao: { singular: 'situação', plural: 'situações', total: opcoesDisponiveis.situacao.length },
-        destinacao: { singular: 'destinação', plural: 'destinações', total: opcoesDisponiveis.destinacao.length },
-        tipo: { singular: 'tipo', plural: 'tipos', total: opcoesDisponiveis.tipo.length },
-        status: { singular: 'status', plural: 'status', total: opcoesDisponiveis.status.length }
+        mes: { total: opcoesDisponiveis.mes.length },
+        situacao: { total: opcoesDisponiveis.situacao.length },
+        destinacao: { total: opcoesDisponiveis.destinacao.length },
+        tipo: { total: opcoesDisponiveis.tipo.length },
+        status: { total: opcoesDisponiveis.status.length }
       };
 
       ['mes', 'situacao', 'destinacao', 'tipo', 'status'].forEach(campo => {
@@ -847,7 +838,7 @@
           return false;
         }
 
-        // 4. Tipo de Demanda
+        // 4. Tipo Demanda
         if (filtrosState.tipo.size > 0) {
           if (!filtrosState.tipo.has(sc.tipoDemanda)) return false;
         } else {
@@ -883,18 +874,37 @@
       const vol = dados.length;
       const vlrTotal = dados.reduce((acc, cur) => acc + cur.valorTotal, 0);
 
-      // SLA PC médio das SCs que possuem pedido emitido
-      const emitidas = dados.filter(sc => sc.numPedido && sc.slaPC !== null);
-      const mediaSlaPC = emitidas.length > 0 
-        ? Math.round(emitidas.reduce((acc, cur) => acc + cur.slaPC, 0) / emitidas.length)
-        : 0;
+      // CÁLCULO DO SLA PC DO PERÍODO SELECIONADO:
+      // Se houver pedidos emitidos, considera o SLA das emitidas;
+      // Se todas as SCs forem pendentes (como as 41 SCs de nov/2026), calcula a média dos dias pendentes de espera!
+      const scValidasPeriodo = dados.filter(sc => sc.slaPC !== null);
+      const emitidasPeriodo = dados.filter(sc => sc.numPedido && sc.slaPC !== null);
+      const pendentesPeriodo = dados.filter(sc => !sc.numPedido && sc.slaPC !== null);
+
+      let mediaSlaPeriodo = 0;
+      if (emitidasPeriodo.length > 0) {
+        mediaSlaPeriodo = Math.round(emitidasPeriodo.reduce((acc, cur) => acc + cur.slaPC, 0) / emitidasPeriodo.length);
+      } else if (pendentesPeriodo.length > 0) {
+        // Quando 100% das SCs são pendentes
+        mediaSlaPeriodo = Math.round(pendentesPeriodo.reduce((acc, cur) => acc + cur.slaPC, 0) / pendentesPeriodo.length);
+      }
+
+      // CÁLCULO DO SLA PC GERAL (TODAS AS SCS DA BASE HISTÓRICA COMPLETA)
+      const todasEmitidasGeral = scArray.filter(sc => sc.numPedido && sc.slaPC !== null);
+      const mediaSlaGeral = todasEmitidasGeral.length > 0
+        ? Math.round(todasEmitidasGeral.reduce((acc, cur) => acc + cur.slaPC, 0) / todasEmitidasGeral.length)
+        : (scArray.length > 0 ? Math.round(scArray.reduce((acc, cur) => acc + (cur.slaPC || 0), 0) / scArray.length) : 0);
 
       const pendentes = dados.filter(sc => !sc.numPedido);
       const percPend = vol > 0 ? ((pendentes.length / vol) * 100).toFixed(1) : 0;
 
       document.getElementById("kpiVolume").innerText = vol;
       document.getElementById("kpiValorTotal").innerText = formatMoeda(vlrTotal);
-      document.getElementById("kpiMediaDias").innerText = `${mediaSlaPC} dias`;
+      
+      // Card Média SLA PC com Média Geral abaixo
+      document.getElementById("kpiMediaDias").innerText = `${mediaSlaPeriodo} dias`;
+      document.getElementById("kpiMediaSlaGeral").innerText = `Média SLA Geral: ${mediaSlaGeral} dias`;
+
       document.getElementById("kpiPendencias").innerText = pendentes.length;
       document.getElementById("kpiPendenciasPerc").innerText = `${percPend}% das SCs`;
       document.getElementById("contadorRegistros").innerText = `${vol} SCs encontradas`;
@@ -990,21 +1000,22 @@
       });
     }
 
-    // Gráfico 3: Comparativo Mensal (1 Linha Inteira)
+    // Gráfico 3: Comparativo Mensal de Demanda (com cálculo correto para meses com pendências)
     function renderizarGraficoEvolucaoMensal() {
       const mesesMap = {};
       scArray.forEach(sc => {
         if (!sc.dataCadastro) return;
         const chave = `${sc.dataCadastro.getFullYear()}-${String(sc.dataCadastro.getMonth() + 1).padStart(2, '0')}`;
         if (!mesesMap[chave]) {
-          mesesMap[chave] = { total: 0, pendentes: 0, slaTotal: 0, emitidas: 0 };
+          mesesMap[chave] = { total: 0, pendentes: 0, emitidas: 0, slaEmitidasTotal: 0, slaPendentesTotal: 0 };
         }
         mesesMap[chave].total++;
         if (!sc.numPedido) {
           mesesMap[chave].pendentes++;
+          if (sc.slaPC !== null) mesesMap[chave].slaPendentesTotal += sc.slaPC;
         } else {
           mesesMap[chave].emitidas++;
-          if (sc.slaPC !== null) mesesMap[chave].slaTotal += sc.slaPC;
+          if (sc.slaPC !== null) mesesMap[chave].slaEmitidasTotal += sc.slaPC;
         }
       });
 
@@ -1016,7 +1027,17 @@
       });
       const volMes = mesesKeys.map(k => mesesMap[k].total);
       const pendMes = mesesKeys.map(k => mesesMap[k].pendentes);
-      const mediaSlaMes = mesesKeys.map(k => mesesMap[k].emitidas > 0 ? Math.round(mesesMap[k].slaTotal / mesesMap[k].emitidas) : 0);
+
+      // Se o mês tiver emitidas, usa a média das emitidas. Se só tiver pendências (ex: mês corrente nov/2026), usa a média de dias pendentes!
+      const mediaSlaMes = mesesKeys.map(k => {
+        const item = mesesMap[k];
+        if (item.emitidas > 0) {
+          return Math.round(item.slaEmitidasTotal / item.emitidas);
+        } else if (item.pendentes > 0) {
+          return Math.round(item.slaPendentesTotal / item.pendentes);
+        }
+        return 0;
+      });
 
       const ctxEvo = document.getElementById("chartEvolucao").getContext("2d");
       if (chartEvo) chartEvo.destroy();
@@ -1044,7 +1065,7 @@
             },
             {
               type: 'line',
-              label: 'Média SLA PC (Aprovação até Pedido)',
+              label: 'Média SLA PC (Dias)',
               data: mediaSlaMes,
               borderColor: '#d97706',
               backgroundColor: '#d97706',
