@@ -29,7 +29,7 @@
     .badge-fatura-b { background-color: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; white-space: nowrap; }
     .badge-estoque { background-color: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; white-space: nowrap; }
 
-    /* Scrollbar personalizada */
+    /* Scrollbar personalizada para os dropdowns */
     .custom-scroll::-webkit-scrollbar { width: 5px; }
     .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -37,337 +37,410 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
-  <!-- Header -->
-  <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
-      <div class="flex items-center gap-3">
-        <div class="bg-blue-600 p-2 rounded-lg shadow-sm">
-          <i data-lucide="shopping-cart" class="w-6 h-6 text-white"></i>
-        </div>
-        <div>
-          <h1 class="text-lg font-bold leading-tight">Portal de Gestão de Compras & SCs</h1>
-          <p class="text-xs text-slate-400">Controle de SLA PC, Tempo de SC, Fatura A/B, Estoque e Pendências</p>
-        </div>
+  <!-- TELA DE BLOQUEIO DE SEGURANÇA (EXIBIDA SE ACESSAR DIRETO SEM O PAINEL) -->
+  <div id="telaBloqueio" class="fixed inset-0 bg-slate-900 z-[9999] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-8 text-center shadow-2xl border border-slate-200">
+      <div class="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="shield-alert" class="w-8 h-8"></i>
       </div>
-
-      <div class="flex items-center gap-2">
-        <button id="btnRefresh" onclick="carregarDados()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition">
-          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar Planilha
-        </button>
-        <span id="syncStatus" class="text-xs text-emerald-400 flex items-center gap-1">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Conectado
-        </span>
+      <h2 class="text-xl font-bold text-slate-900 mb-2">Acesso Restrito</h2>
+      <p class="text-xs text-slate-500 mb-6 leading-relaxed">
+        Este portal é exclusivo para <strong>Gerente e Administrador</strong> e só pode ser acessado através do login no Painel Principal. Acesso direto por link não é permitido.
+      </p>
+      <div class="space-y-3">
+        <a id="linkPainelRedirecionamento" href="https://spi-tel.github.io/" class="block w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-md">
+          Ir para o Painel de Login
+        </a>
+        <p class="text-[11px] text-slate-400">Redirecionando automaticamente em <span id="segundosRedirecionamento" class="font-bold text-slate-600">3</span>s...</p>
       </div>
     </div>
-  </header>
+  </div>
 
-  <!-- Container Principal -->
-  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+  <!-- CONTEÚDO PRINCIPAL (LIBERADO APÓS VALIDAÇÃO) -->
+  <div id="conteudoPortal" class="hidden">
 
-    <!-- Navegação de Abas -->
-    <div class="flex border-b border-slate-200">
-      <button id="tabDashboardBtn" onclick="trocarAba('dashboard')" class="px-5 py-2.5 font-semibold text-sm border-b-2 border-blue-600 text-blue-600 flex items-center gap-2">
-        <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Painel Geral & Grade de SCs
-      </button>
-      <button id="tabPendenciasBtn" onclick="trocarAba('pendencias')" class="px-5 py-2.5 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
-        <i data-lucide="alert-triangle" class="w-4 h-4"></i> Pendências (Últimos 3 Meses)
-        <span id="badgeQtdPendencias3M" class="bg-rose-100 text-rose-700 text-xs px-2 py-0.5 rounded-full font-bold ml-1">0</span>
-      </button>
-    </div>
-
-    <!-- Barra de Filtros com Múltipla Escolha -->
-    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
-      <div class="flex flex-wrap gap-3 items-center justify-between">
-        
-        <div class="flex flex-wrap gap-2.5 items-center flex-1">
-          <!-- 1. Multi-Select Mês de Cadastro -->
-          <div class="relative" id="dropdownContainer-mes">
-            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Mês de Cadastro</label>
-            <button type="button" onclick="toggleDropdown('mes')" id="btnLabel-mes" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[170px] shadow-sm hover:bg-slate-100">
-              <span id="text-mes" class="truncate">Mês Atual</span>
-              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
-            </button>
-            <div id="menu-mes" class="hidden absolute left-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
-              <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
-                <button onclick="selecionarTodos('mes', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
-                <button onclick="selecionarTodos('mes', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
-              </div>
-              <div id="lista-mes" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
-            </div>
-          </div>
-
-          <!-- 2. Multi-Select Situação SC -->
-          <div class="relative" id="dropdownContainer-situacao">
-            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Situação da SC</label>
-            <button type="button" onclick="toggleDropdown('situacao')" id="btnLabel-situacao" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[160px] shadow-sm hover:bg-slate-100">
-              <span id="text-situacao" class="truncate">Todas</span>
-              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
-            </button>
-            <div id="menu-situacao" class="hidden absolute left-0 mt-1 w-60 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
-              <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
-                <button onclick="selecionarTodos('situacao', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
-                <button onclick="selecionarTodos('situacao', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
-              </div>
-              <div id="lista-situacao" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
-            </div>
-          </div>
-
-          <!-- 3. Multi-Select Destinação -->
-          <div class="relative" id="dropdownContainer-destinacao">
-            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Destinação</label>
-            <button type="button" onclick="toggleDropdown('destinacao')" id="btnLabel-destinacao" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[155px] shadow-sm hover:bg-slate-100">
-              <span id="text-destinacao" class="truncate">Todas</span>
-              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
-            </button>
-            <div id="menu-destinacao" class="hidden absolute left-0 mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
-              <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
-                <button onclick="selecionarTodos('destinacao', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
-                <button onclick="selecionarTodos('destinacao', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
-              </div>
-              <div id="lista-destinacao" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
-            </div>
-          </div>
-
-          <!-- 4. Multi-Select Tipo de Demanda -->
-          <div class="relative" id="dropdownContainer-tipo">
-            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tipo de Demanda</label>
-            <button type="button" onclick="toggleDropdown('tipo')" id="btnLabel-tipo" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[155px] shadow-sm hover:bg-slate-100">
-              <span id="text-tipo" class="truncate">Todos</span>
-              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
-            </button>
-            <div id="menu-tipo" class="hidden absolute left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
-              <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
-                <button onclick="selecionarTodos('tipo', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
-                <button onclick="selecionarTodos('tipo', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
-              </div>
-              <div id="lista-tipo" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
-            </div>
-          </div>
-
-          <!-- 5. Multi-Select Status do Pedido -->
-          <div class="relative" id="dropdownContainer-status">
-            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Status do Pedido</label>
-            <button type="button" onclick="toggleDropdown('status')" id="btnLabel-status" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[160px] shadow-sm hover:bg-slate-100">
-              <span id="text-status" class="truncate">Todos</span>
-              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
-            </button>
-            <div id="menu-status" class="hidden absolute left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
-              <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
-                <button onclick="selecionarTodos('status', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
-                <button onclick="selecionarTodos('status', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
-              </div>
-              <div id="lista-status" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Busca Rápida -->
-        <div class="w-full md:w-56 mt-2 md:mt-0">
-          <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Busca Rápida</label>
-          <div class="relative">
-            <input type="text" id="campoBusca" onkeyup="aplicarFiltros()" placeholder="Nº SC, solicitante, produto..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- SEÇÃO 1: DASHBOARD E GRID -->
-    <div id="secaoDashboard" class="space-y-6">
-      
-      <!-- KPIs / Totalizadores -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div class="p-3 bg-blue-50 rounded-lg text-blue-600">
-            <i data-lucide="file-text" class="w-6 h-6"></i>
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+          <div class="bg-blue-600 p-2 rounded-lg shadow-sm">
+            <i data-lucide="shopping-cart" class="w-6 h-6 text-white"></i>
           </div>
           <div>
-            <p class="text-xs text-slate-500 font-medium">Volume de SCs</p>
-            <h3 id="kpiVolume" class="text-2xl font-bold text-slate-800">0</h3>
-            <span id="kpiVolumeSub" class="text-[11px] text-slate-400">Total filtrado</span>
+            <h1 class="text-lg font-bold leading-tight">Portal de Gestão de Compras & SCs</h1>
+            <p class="text-xs text-slate-400">Controle de SLA PC, Tempo de SC, Fatura A/B, Estoque e Pendências</p>
           </div>
         </div>
 
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div class="p-3 bg-emerald-50 rounded-lg text-emerald-600">
-            <i data-lucide="dollar-sign" class="w-6 h-6"></i>
-          </div>
-          <div>
-            <p class="text-xs text-slate-500 font-medium">Valor Total SCs</p>
-            <h3 id="kpiValorTotal" class="text-2xl font-bold text-slate-800">R$ 0,00</h3>
-            <span id="kpiValorSub" class="text-[11px] text-slate-400">Total aprovado</span>
-          </div>
-        </div>
-
-        <!-- KPI MÉDIA SLA PC COM MÉDIA GERAL ABAIXO -->
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div class="p-3 bg-amber-50 rounded-lg text-amber-600">
-            <i data-lucide="clock" class="w-6 h-6"></i>
-          </div>
-          <div>
-            <p class="text-xs text-slate-500 font-medium">Média SLA PC</p>
-            <h3 id="kpiMediaDias" class="text-2xl font-bold text-slate-800">0 dias</h3>
-            <span id="kpiMediaSlaGeral" class="text-[11px] font-semibold text-slate-500">Média SLA Geral: 0 dias</span>
-          </div>
-        </div>
-
-        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div class="p-3 bg-rose-50 rounded-lg text-rose-600">
-            <i data-lucide="alert-circle" class="w-6 h-6"></i>
-          </div>
-          <div>
-            <p class="text-xs text-slate-500 font-medium">Pendências (Sem Pedido)</p>
-            <h3 id="kpiPendencias" class="text-2xl font-bold text-slate-800">0</h3>
-            <span id="kpiPendenciasPerc" class="text-[11px] text-rose-500 font-medium">0% do período</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Gráficos Superiores (Destino em Colunas e Demanda) -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Gráfico Destinação -->
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <div class="flex justify-between items-center mb-3">
-            <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
-              <i data-lucide="bar-chart-2" class="w-4 h-4 text-purple-600"></i> Destinação (Fatura A / B / Estoque)
-            </h4>
-            <span class="text-[11px] text-slate-400 font-medium">Volume & %</span>
-          </div>
-          <div class="relative h-64">
-            <canvas id="chartDestinacao"></canvas>
-          </div>
-        </div>
-
-        <!-- Gráfico Tipo Demanda -->
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <div class="flex justify-between items-center mb-3">
-            <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
-              <i data-lucide="pie-chart" class="w-4 h-4 text-blue-500"></i> Tipos de Demanda (Volume & %)
-            </h4>
-            <span class="text-[11px] text-slate-400 font-medium">Emergencial / Regularização / Normal</span>
-          </div>
-          <div class="relative h-64 flex items-center justify-center">
-            <canvas id="chartTipoDemanda"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <!-- Gráfico Inferior: Comparativo Mensal em 1 Linha Inteira -->
-      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm w-full">
-        <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
-          <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
-            <i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i> Comparativo Mensal de Demanda (Volume, Pendências e SLA PC)
-          </h4>
-          <span class="text-xs text-slate-400">Evolução por Mês de Cadastro</span>
-        </div>
-        <div class="relative h-72 w-full">
-          <canvas id="chartEvolucao"></canvas>
-        </div>
-      </div>
-
-      <!-- Grid Principal Master-Detail -->
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-4 border-b border-slate-200 flex justify-between items-center">
-          <div>
-            <h3 class="text-sm font-bold text-slate-800">Solicitações de Compras (SCs)</h3>
-            <p class="text-xs text-slate-500">Clique na linha da SC para visualizar os itens detalhados</p>
-          </div>
-          <span id="contadorRegistros" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-semibold">
-            0 SCs
-          </span>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
-            <thead class="bg-slate-100 text-slate-600 font-semibold uppercase tracking-wider text-[11px] border-b border-slate-200">
-              <tr>
-                <th class="py-3 px-3 w-8"></th>
-                <th class="py-3 px-3">Cód. SC</th>
-                <th class="py-3 px-3">Data Cadastro</th>
-                <th class="py-3 px-3">Data Necessidade</th>
-                <th class="py-3 px-3 text-center">Tempo SC</th>
-                <th class="py-3 px-3">Situação SC</th>
-                <th class="py-3 px-3">Destinação</th>
-                <th class="py-3 px-3">Tipo Demanda</th>
-                <th class="py-3 px-3">Solicitante</th>
-                <th class="py-3 px-3">Nº Pedido</th>
-                <th class="py-3 px-3">Status Pedido</th>
-                <th class="py-3 px-3 text-center">SLA PC</th>
-                <th class="py-3 px-3 text-right">Valor Total SC</th>
-              </tr>
-            </thead>
-            <tbody id="tabelaMasterSC" class="divide-y divide-slate-100">
-              <tr>
-                <td colspan="13" class="text-center py-8 text-slate-400">Carregando dados da planilha...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- SEÇÃO 2: HISTÓRICO DE PENDÊNCIAS (ÚLTIMOS 3 MESES) -->
-    <div id="secaoPendencias" class="space-y-6 hidden">
-      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-        <i data-lucide="info" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
-        <div>
-          <h4 class="text-sm font-bold text-amber-900">Histórico de Pendências Recentes</h4>
-          <p class="text-xs text-amber-800">
-            Abaixo estão listadas todas as SCs cadastradas nos últimos 90 dias que <strong>ainda não possuem Pedido de Compra gerado</strong>, indicando o Tempo SC decorrido, o SLA PC de espera e as observações.
-          </p>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-4 border-b border-slate-200 flex justify-between items-center">
-          <h3 class="text-sm font-bold text-slate-800">SCs Sem Pedido nos Últimos 3 Meses</h3>
-          <button onclick="exportarCSVPendencias()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5 border border-slate-300">
-            <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar Pendências
+        <div class="flex items-center gap-3">
+          <button id="btnRefresh" onclick="carregarDados()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar
+          </button>
+          <button onclick="fazerLogout()" title="Sair do Portal" class="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-rose-500/30 transition">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Sair
           </button>
         </div>
+      </div>
+    </header>
 
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
-            <thead class="bg-rose-50 text-rose-900 font-semibold uppercase tracking-wider text-[11px] border-b border-rose-200">
-              <tr>
-                <th class="py-3 px-3">Cód. SC</th>
-                <th class="py-3 px-3">Data Cadastro</th>
-                <th class="py-3 px-3">Data Necessidade</th>
-                <th class="py-3 px-3 text-center">Tempo SC</th>
-                <th class="py-3 px-3 text-center">SLA PC (Espera)</th>
-                <th class="py-3 px-3">Situação</th>
-                <th class="py-3 px-3">Destinação</th>
-                <th class="py-3 px-3">Tipo Demanda</th>
-                <th class="py-3 px-3">Solicitante</th>
-                <th class="py-3 px-3 text-center">Qtd Itens</th>
-                <th class="py-3 px-3 text-right">Valor Estimado</th>
-                <th class="py-3 px-3 w-1/4">Observação / Justificativa</th>
-              </tr>
-            </thead>
-            <tbody id="tabelaPendencias3M" class="divide-y divide-slate-100">
-              <!-- Preenchido via JS -->
-            </tbody>
-          </table>
+    <!-- Container Principal -->
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+      <!-- Navegação de Abas -->
+      <div class="flex border-b border-slate-200">
+        <button id="tabDashboardBtn" onclick="trocarAba('dashboard')" class="px-5 py-2.5 font-semibold text-sm border-b-2 border-blue-600 text-blue-600 flex items-center gap-2">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Painel Geral & Grade de SCs
+        </button>
+        <button id="tabPendenciasBtn" onclick="trocarAba('pendencias')" class="px-5 py-2.5 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2">
+          <i data-lucide="alert-triangle" class="w-4 h-4"></i> Pendências (Últimos 3 Meses)
+          <span id="badgeQtdPendencias3M" class="bg-rose-100 text-rose-700 text-xs px-2 py-0.5 rounded-full font-bold ml-1">0</span>
+        </button>
+      </div>
+
+      <!-- Barra de Filtros com Múltipla Escolha -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <div class="flex flex-wrap gap-3 items-center justify-between">
+          
+          <div class="flex flex-wrap gap-2.5 items-center flex-1">
+            <!-- 1. Multi-Select Mês de Cadastro -->
+            <div class="relative" id="dropdownContainer-mes">
+              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Mês de Cadastro</label>
+              <button type="button" onclick="toggleDropdown('mes')" id="btnLabel-mes" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[170px] shadow-sm hover:bg-slate-100">
+                <span id="text-mes" class="truncate">Mês Atual</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+              </button>
+              <div id="menu-mes" class="hidden absolute left-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
+                <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
+                  <button onclick="selecionarTodos('mes', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
+                  <button onclick="selecionarTodos('mes', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
+                </div>
+                <div id="lista-mes" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
+              </div>
+            </div>
+
+            <!-- 2. Multi-Select Situação SC -->
+            <div class="relative" id="dropdownContainer-situacao">
+              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Situação da SC</label>
+              <button type="button" onclick="toggleDropdown('situacao')" id="btnLabel-situacao" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[160px] shadow-sm hover:bg-slate-100">
+                <span id="text-situacao" class="truncate">Todas</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+              </button>
+              <div id="menu-situacao" class="hidden absolute left-0 mt-1 w-60 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
+                <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
+                  <button onclick="selecionarTodos('situacao', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
+                  <button onclick="selecionarTodos('situacao', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
+                </div>
+                <div id="lista-situacao" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
+              </div>
+            </div>
+
+            <!-- 3. Multi-Select Destinação -->
+            <div class="relative" id="dropdownContainer-destinacao">
+              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Destinação</label>
+              <button type="button" onclick="toggleDropdown('destinacao')" id="btnLabel-destinacao" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[155px] shadow-sm hover:bg-slate-100">
+                <span id="text-destinacao" class="truncate">Todas</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+              </button>
+              <div id="menu-destinacao" class="hidden absolute left-0 mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
+                <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
+                  <button onclick="selecionarTodos('destinacao', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
+                  <button onclick="selecionarTodos('destinacao', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
+                </div>
+                <div id="lista-destinacao" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
+              </div>
+            </div>
+
+            <!-- 4. Multi-Select Tipo de Demanda -->
+            <div class="relative" id="dropdownContainer-tipo">
+              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tipo de Demanda</label>
+              <button type="button" onclick="toggleDropdown('tipo')" id="btnLabel-tipo" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[155px] shadow-sm hover:bg-slate-100">
+                <span id="text-tipo" class="truncate">Todos</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+              </button>
+              <div id="menu-tipo" class="hidden absolute left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
+                <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
+                  <button onclick="selecionarTodos('tipo', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
+                  <button onclick="selecionarTodos('tipo', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
+                </div>
+                <div id="lista-tipo" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
+              </div>
+            </div>
+
+            <!-- 5. Multi-Select Status do Pedido -->
+            <div class="relative" id="dropdownContainer-status">
+              <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Status do Pedido</label>
+              <button type="button" onclick="toggleDropdown('status')" id="btnLabel-status" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-700 flex items-center justify-between gap-2 min-w-[160px] shadow-sm hover:bg-slate-100">
+                <span id="text-status" class="truncate">Todos</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+              </button>
+              <div id="menu-status" class="hidden absolute left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-2 text-xs">
+                <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-100">
+                  <button onclick="selecionarTodos('status', true)" class="text-[11px] text-blue-600 font-semibold hover:underline">Todos</button>
+                  <button onclick="selecionarTodos('status', false)" class="text-[11px] text-slate-500 hover:underline">Limpar</button>
+                </div>
+                <div id="lista-status" class="max-h-48 overflow-y-auto custom-scroll space-y-1"></div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Busca Rápida -->
+          <div class="w-full md:w-56 mt-2 md:mt-0">
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Busca Rápida</label>
+            <div class="relative">
+              <input type="text" id="campoBusca" onkeyup="aplicarFiltros()" placeholder="Nº SC, solicitante, produto..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+            </div>
+          </div>
+
         </div>
       </div>
-    </div>
 
-  </main>
+      <!-- SEÇÃO 1: DASHBOARD E GRID -->
+      <div id="secaoDashboard" class="space-y-6">
+        
+        <!-- KPIs / Totalizadores -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+            <div class="p-3 bg-blue-50 rounded-lg text-blue-600">
+              <i data-lucide="file-text" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <p class="text-xs text-slate-500 font-medium">Volume de SCs</p>
+              <h3 id="kpiVolume" class="text-2xl font-bold text-slate-800">0</h3>
+              <span id="kpiVolumeSub" class="text-[11px] text-slate-400">Total filtrado</span>
+            </div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+            <div class="p-3 bg-emerald-50 rounded-lg text-emerald-600">
+              <i data-lucide="dollar-sign" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <p class="text-xs text-slate-500 font-medium">Valor Total SCs</p>
+              <h3 id="kpiValorTotal" class="text-2xl font-bold text-slate-800">R$ 0,00</h3>
+              <span id="kpiValorSub" class="text-[11px] text-slate-400">Total aprovado</span>
+            </div>
+          </div>
+
+          <!-- KPI MÉDIA SLA PC COM MÉDIA GERAL ABAIXO -->
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+            <div class="p-3 bg-amber-50 rounded-lg text-amber-600">
+              <i data-lucide="clock" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <p class="text-xs text-slate-500 font-medium">Média SLA PC</p>
+              <h3 id="kpiMediaDias" class="text-2xl font-bold text-slate-800">0 dias</h3>
+              <span id="kpiMediaSlaGeral" class="text-[11px] font-semibold text-slate-500">Média SLA Geral: 0 dias</span>
+            </div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+            <div class="p-3 bg-rose-50 rounded-lg text-rose-600">
+              <i data-lucide="alert-circle" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <p class="text-xs text-slate-500 font-medium">Pendências (Sem Pedido)</p>
+              <h3 id="kpiPendencias" class="text-2xl font-bold text-slate-800">0</h3>
+              <span id="kpiPendenciasPerc" class="text-[11px] text-rose-500 font-medium">0% do período</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gráficos Superiores (Destino em Colunas e Demanda) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div class="flex justify-between items-center mb-3">
+              <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                <i data-lucide="bar-chart-2" class="w-4 h-4 text-purple-600"></i> Destinação (Fatura A / B / Estoque)
+              </h4>
+              <span class="text-[11px] text-slate-400 font-medium">Volume & %</span>
+            </div>
+            <div class="relative h-64">
+              <canvas id="chartDestinacao"></canvas>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div class="flex justify-between items-center mb-3">
+              <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                <i data-lucide="pie-chart" class="w-4 h-4 text-blue-500"></i> Tipos de Demanda (Volume & %)
+              </h4>
+              <span class="text-[11px] text-slate-400 font-medium">Emergencial / Regularização / Normal</span>
+            </div>
+            <div class="relative h-64 flex items-center justify-center">
+              <canvas id="chartTipoDemanda"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gráfico Inferior: Comparativo Mensal em 1 Linha Inteira -->
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm w-full">
+          <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
+            <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+              <i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i> Comparativo Mensal de Demanda (Volume, Pendências e SLA PC)
+            </h4>
+            <span class="text-xs text-slate-400">Evolução por Mês de Cadastro</span>
+          </div>
+          <div class="relative h-72 w-full">
+            <canvas id="chartEvolucao"></canvas>
+          </div>
+        </div>
+
+        <!-- Grid Principal Master-Detail -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+            <div>
+              <h3 class="text-sm font-bold text-slate-800">Solicitações de Compras (SCs)</h3>
+              <p class="text-xs text-slate-500">Clique na linha da SC para visualizar os itens detalhados</p>
+            </div>
+            <span id="contadorRegistros" class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-semibold">
+              0 SCs
+            </span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="bg-slate-100 text-slate-600 font-semibold uppercase tracking-wider text-[11px] border-b border-slate-200">
+                <tr>
+                  <th class="py-3 px-3 w-8"></th>
+                  <th class="py-3 px-3">Cód. SC</th>
+                  <th class="py-3 px-3">Data Cadastro</th>
+                  <th class="py-3 px-3">Data Necessidade</th>
+                  <th class="py-3 px-3 text-center">Tempo SC</th>
+                  <th class="py-3 px-3">Situação SC</th>
+                  <th class="py-3 px-3">Destinação</th>
+                  <th class="py-3 px-3">Tipo Demanda</th>
+                  <th class="py-3 px-3">Solicitante</th>
+                  <th class="py-3 px-3">Nº Pedido</th>
+                  <th class="py-3 px-3">Status Pedido</th>
+                  <th class="py-3 px-3 text-center">SLA PC</th>
+                  <th class="py-3 px-3 text-right">Valor Total SC</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaMasterSC" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="13" class="text-center py-8 text-slate-400">Carregando dados da planilha...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SEÇÃO 2: HISTÓRICO DE PENDÊNCIAS (ÚLTIMOS 3 MESES) -->
+      <div id="secaoPendencias" class="space-y-6 hidden">
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <i data-lucide="info" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
+          <div>
+            <h4 class="text-sm font-bold text-amber-900">Histórico de Pendências Recentes</h4>
+            <p class="text-xs text-amber-800">
+              Abaixo estão listadas todas as SCs cadastradas nos últimos 90 dias que <strong>ainda não possuem Pedido de Compra gerado</strong>.
+            </p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+            <h3 class="text-sm font-bold text-slate-800">SCs Sem Pedido nos Últimos 3 Meses</h3>
+            <button onclick="exportarCSVPendencias()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium flex items-center gap-1.5 border border-slate-300">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i> Exportar Pendências
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead class="bg-rose-50 text-rose-900 font-semibold uppercase tracking-wider text-[11px] border-b border-rose-200">
+                <tr>
+                  <th class="py-3 px-3">Cód. SC</th>
+                  <th class="py-3 px-3">Data Cadastro</th>
+                  <th class="py-3 px-3">Data Necessidade</th>
+                  <th class="py-3 px-3 text-center">Tempo SC</th>
+                  <th class="py-3 px-3 text-center">SLA PC (Espera)</th>
+                  <th class="py-3 px-3">Situação</th>
+                  <th class="py-3 px-3">Destinação</th>
+                  <th class="py-3 px-3">Tipo Demanda</th>
+                  <th class="py-3 px-3">Solicitante</th>
+                  <th class="py-3 px-3 text-center">Qtd Itens</th>
+                  <th class="py-3 px-3 text-right">Valor Estimado</th>
+                  <th class="py-3 px-3 w-1/4">Observação / Justificativa</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaPendencias3M" class="divide-y divide-slate-100">
+                <!-- Preenchido via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+  </div>
 
   <script>
+    // ==============================================================
+    // CONFIGURAÇÃO DE SEGURANÇA E ACESSO VIA PAINEL
+    // ==============================================================
+    const URL_PAINEL_LOGIN = "https://spi-tel.github.io/"; 
+    const CHAVE_SECRETA_ACESSO = "COMPRAS_SESSAO_VALIDA"; 
+
+    // Planilha do Google Sheets CSV
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSfn6Ra2r7-hXrKjkSl1BVdZm57NEjZ4jH85aWrIZAnwoTTUaAx4Km2596IZceVqfLB--P7IKZV4Em3/pub?gid=1842816317&single=true&output=csv";
 
-    // Estado da aplicação
+    function validarAutenticacao() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tokenURL = urlParams.get('auth') || urlParams.get('token') || urlParams.get('access_token');
+      const sessaoAtiva = sessionStorage.getItem("portal_compras_auth");
+
+      if (tokenURL === CHAVE_SECRETA_ACESSO || (tokenURL && tokenURL.length > 5) || sessaoAtiva === "true") {
+        sessionStorage.setItem("portal_compras_auth", "true");
+        
+        // Remove ?auth= da barra de navegação para evitar compartilhamento indevido
+        if (tokenURL) {
+          const cleanUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+
+        document.getElementById("telaBloqueio").classList.add("hidden");
+        document.getElementById("conteudoPortal").classList.remove("hidden");
+        return true;
+      }
+
+      // Se tentar acessar diretamente pelo link sem estar logado no painel:
+      document.getElementById("linkPainelRedirecionamento").setAttribute("href", URL_PAINEL_LOGIN);
+      iniciarRedirecionamento();
+      return false;
+    }
+
+    function iniciarRedirecionamento() {
+      let segundos = 3;
+      const spanSeg = document.getElementById("segundosRedirecionamento");
+      const interval = setInterval(() => {
+        segundos--;
+        if (spanSeg) spanSeg.innerText = segundos;
+        if (segundos <= 0) {
+          clearInterval(interval);
+          window.location.href = URL_PAINEL_LOGIN;
+        }
+      }, 1000);
+    }
+
+    function fazerLogout() {
+      sessionStorage.removeItem("portal_compras_auth");
+      window.location.href = URL_PAINEL_LOGIN;
+    }
+
+    // ==============================================================
+    // APLICAÇÃO E PROCESSAMENTO DOS DADOS
+    // ==============================================================
     let scMap = new Map();
     let scArray = [];
     let chartDest = null;
     let chartTipo = null;
     let chartEvo = null;
 
-    // Estado dos Filtros
     const filtrosState = {
       mes: new Set(),
       situacao: new Set(),
@@ -386,6 +459,11 @@
 
     document.addEventListener("DOMContentLoaded", () => {
       lucide.createIcons();
+
+      // Só processa dados se passar pela validação
+      const autorizado = validarAutenticacao();
+      if (!autorizado) return;
+
       carregarDados();
 
       // Fechar dropdowns ao clicar fora
@@ -431,7 +509,6 @@
       lucide.createIcons();
     }
 
-    // Auxiliares de Datas e Valores
     function parseDate(dateStr) {
       if (!dateStr || dateStr.trim() === "") return null;
       const parts = dateStr.trim().split(" ");
@@ -485,7 +562,6 @@
       return "ESTOQUE";
     }
 
-    // Carregamento de Dados da Planilha
     function carregarDados() {
       const btn = document.getElementById("btnRefresh");
       btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Sincronizando...`;
@@ -497,13 +573,13 @@
         skipEmptyLines: true,
         complete: function(results) {
           processarLinhas(results.data);
-          btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar Planilha`;
+          btn.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar`;
           lucide.createIcons();
         },
         error: function(err) {
-          console.error("Erro:", err);
+          console.error("Erro ao ler dados:", err);
           alert("Não foi possível carregar a planilha automaticamente.");
-          btn.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-500"></i> Erro na Conexão`;
+          btn.innerHTML = `<i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-500"></i> Erro Conexão`;
           lucide.createIcons();
         }
       });
@@ -626,7 +702,6 @@
         }
       });
 
-      // Cálculo de Tempos
       const hoje = new Date();
       scArray = Array.from(scMap.values()).map(sc => {
         let tempoSC = 0;
@@ -681,7 +756,6 @@
     }
 
     function renderizarMenusFiltros() {
-      // 1. Menu Mês de Cadastro
       const listaMes = document.getElementById("lista-mes");
       listaMes.innerHTML = opcoesDisponiveis.mes.map(m => {
         const [a, mes] = m.split("-");
@@ -697,7 +771,6 @@
         `;
       }).join('');
 
-      // 2. Menu Situação SC
       const listaSituacao = document.getElementById("lista-situacao");
       listaSituacao.innerHTML = opcoesDisponiveis.situacao.map(sit => {
         const checked = filtrosState.situacao.has(sit) ? 'checked' : '';
@@ -709,7 +782,6 @@
         `;
       }).join('');
 
-      // 3. Menu Destinação
       const listaDest = document.getElementById("lista-destinacao");
       const labelsDest = { 'FATURA A': 'Fatura A', 'FATURA B': 'Fatura B', 'ESTOQUE': 'Estoque' };
       listaDest.innerHTML = opcoesDisponiveis.destinacao.map(d => {
@@ -722,7 +794,6 @@
         `;
       }).join('');
 
-      // 4. Menu Tipo de Demanda
       const listaTipo = document.getElementById("lista-tipo");
       const labelsTipo = { 'EMERGENCIAL': 'Emergencial', 'REGULARIZACAO': 'Regularização', 'NORMAL': 'Demanda Normal' };
       listaTipo.innerHTML = opcoesDisponiveis.tipo.map(t => {
@@ -735,7 +806,6 @@
         `;
       }).join('');
 
-      // 5. Menu Status do Pedido
       const listaStatus = document.getElementById("lista-status");
       const labelsStatus = { 'PENDENTE': 'Pendente (Sem Pedido)', 'ATENDIDA': 'Com Pedido Gerado' };
       listaStatus.innerHTML = opcoesDisponiveis.status.map(s => {
@@ -814,7 +884,6 @@
       const busca = document.getElementById("campoBusca").value.toLowerCase().trim();
 
       const filtrados = scArray.filter(sc => {
-        // 1. Mês de Cadastro
         if (filtrosState.mes.size > 0 && sc.dataCadastro) {
           const chaveMes = `${sc.dataCadastro.getFullYear()}-${String(sc.dataCadastro.getMonth() + 1).padStart(2, '0')}`;
           if (!filtrosState.mes.has(chaveMes)) return false;
@@ -822,28 +891,24 @@
           return false;
         }
 
-        // 2. Situação SC
         if (filtrosState.situacao.size > 0) {
           if (!filtrosState.situacao.has(sc.situacao)) return false;
         } else {
           return false;
         }
 
-        // 3. Destinação
         if (filtrosState.destinacao.size > 0) {
           if (!filtrosState.destinacao.has(sc.destinacao)) return false;
         } else {
           return false;
         }
 
-        // 4. Tipo Demanda
         if (filtrosState.tipo.size > 0) {
           if (!filtrosState.tipo.has(sc.tipoDemanda)) return false;
         } else {
           return false;
         }
 
-        // 5. Status do Pedido
         const isPendente = !sc.numPedido || sc.statusPedido.toUpperCase().includes("PENDENTE");
         const statusTipo = isPendente ? 'PENDENTE' : 'ATENDIDA';
         if (filtrosState.status.size > 0) {
@@ -852,7 +917,6 @@
           return false;
         }
 
-        // Busca rápida
         if (busca) {
           const texto = (sc.codSC + " " + sc.solicitante + " " + sc.descCompra + " " + sc.itens.map(i => i.produto).join(" ")).toLowerCase();
           if (!texto.includes(busca)) return false;
@@ -901,7 +965,6 @@
       document.getElementById("contadorRegistros").innerText = `${vol} SCs encontradas`;
     }
 
-    // Gráfico 1: Destinação em Colunas (Qtde e %)
     function renderizarGraficoDestinacaoColunas(dados) {
       const totalGeral = dados.length || 1;
       const countDest = { "FATURA A": 0, "FATURA B": 0, "ESTOQUE": 0 };
@@ -956,7 +1019,6 @@
       });
     }
 
-    // Gráfico 2: Tipos de Demanda (Emergencial, Regularização, Demanda Normal)
     function renderizarGraficoTipoDemanda(dados) {
       const totalGeral = dados.length || 1;
       const countTipo = { EMERGENCIAL: 0, REGULARIZACAO: 0, NORMAL: 0 };
@@ -991,7 +1053,6 @@
       });
     }
 
-    // Gráfico 3: Comparativo Mensal de Demanda
     function renderizarGraficoEvolucaoMensal() {
       const mesesMap = {};
       scArray.forEach(sc => {
@@ -1091,7 +1152,6 @@
       });
     }
 
-    // Grid Principal Master-Detail
     function renderizarGridMaster(dados) {
       const tbody = document.getElementById("tabelaMasterSC");
       if (dados.length === 0) {
@@ -1103,7 +1163,6 @@
       dados.forEach(sc => {
         const isPendente = !sc.numPedido;
 
-        // Badges
         const badgeDest = sc.destinacao === "FATURA A" 
           ? `<span class="badge-fatura-a px-2 py-0.5 rounded text-[10px] font-bold">FATURA A</span>`
           : sc.destinacao === "FATURA B"
@@ -1122,12 +1181,10 @@
           ? `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Pendente</span>`
           : `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit whitespace-nowrap"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> ${sc.statusPedido || 'Gerado'}</span>`;
 
-        // SLA PC Badge com whitespace-nowrap para não quebrar
         const badgeSlaPC = isPendente
           ? `<span class="font-bold text-rose-600 whitespace-nowrap text-[11px]">${sc.slaPC !== null ? sc.slaPC + ' dias (Espera)' : '-'}</span>`
           : `<span class="text-slate-700 font-medium whitespace-nowrap text-[11px]">${sc.slaPC !== null ? sc.slaPC + ' dias até PC' : '-'}</span>`;
 
-        // Tempo SC Badge
         const badgeTempoSC = `<span class="font-mono text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded font-semibold text-[10px] whitespace-nowrap">${sc.tempoSC}d</span>`;
 
         html += `
@@ -1142,7 +1199,6 @@
             <td class="py-2.5 px-3 whitespace-nowrap">${badgeSituacao}</td>
             <td class="py-2.5 px-3 whitespace-nowrap">${badgeDest}</td>
             <td class="py-2.5 px-3 whitespace-nowrap">${badgeDemanda}</td>
-            <!-- Solicitante com fonte menor e entrelinha justa -->
             <td class="py-2.5 px-3 text-[11px] leading-tight font-medium text-slate-700 max-w-[170px]">${sc.solicitante || '-'}</td>
             <td class="py-2.5 px-3 font-mono font-medium whitespace-nowrap text-[11px]">${sc.numPedido || '<span class="text-slate-400">---</span>'}</td>
             <td class="py-2.5 px-3 whitespace-nowrap">${badgeStatus}</td>
@@ -1150,7 +1206,6 @@
             <td class="py-2.5 px-3 text-right font-semibold text-slate-800 whitespace-nowrap text-[11px]">${formatMoeda(sc.valorTotal)}</td>
           </tr>
 
-          <!-- Detalhes dos Itens -->
           <tr id="detalhe-${sc.codSC}" class="hidden bg-slate-50/70 border-b border-slate-200">
             <td colspan="13" class="p-3 pl-12">
               <div class="bg-white rounded-lg border border-slate-200 p-3 shadow-sm">
@@ -1176,10 +1231,10 @@
                   <tbody class="divide-y divide-slate-100">
                     ${sc.itens.map(it => `
                       <tr>
-                        <td class="py-1 px-2 font-medium text-slate-700">${it.produto}</td>
-                        <td class="py-1 px-2 text-center">${it.quantidade}</td>
-                        <td class="py-1 px-2 text-slate-500">${it.fornecedor}</td>
-                        <td class="py-1 px-2 text-right font-semibold text-slate-700">${formatMoeda(it.valorTotal)}</td>
+                        <td class="py-1.5 px-2 font-medium text-slate-700">${it.produto}</td>
+                        <td class="py-1.5 px-2 text-center">${it.quantidade}</td>
+                        <td class="py-1.5 px-2 text-slate-500">${it.fornecedor}</td>
+                        <td class="py-1.5 px-2 text-right font-semibold text-slate-700">${formatMoeda(it.valorTotal)}</td>
                       </tr>
                     `).join('')}
                   </tbody>
@@ -1208,7 +1263,6 @@
       }
     }
 
-    // Pendências Recentes (Últimos 3 Meses)
     function renderizarPendencias3M() {
       const hoje = new Date();
       const limite90Dias = new Date();
@@ -1242,7 +1296,6 @@
           ? `<span class="badge-regularizacao px-2 py-0.5 rounded text-[10px] font-bold">REGULARIZAÇÃO</span>`
           : `<span class="badge-normal px-2 py-0.5 rounded text-[10px] font-bold">NORMAL</span>`;
 
-        // CORREÇÃO DOS DIAS EM VERMELHO: inline-flex, whitespace-nowrap, fonte text-[10px], padding justo e alinhamento centrado
         const badgeDiasVermelho = sc.slaPC > 15
           ? `<span class="inline-flex items-center justify-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white shadow-sm leading-none">${sc.slaPC} dias</span>`
           : `<span class="inline-flex items-center justify-center whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 leading-none">${sc.slaPC !== null ? sc.slaPC + ' dias' : '-'}</span>`;
@@ -1253,12 +1306,10 @@
             <td class="py-2.5 px-3 text-slate-600 whitespace-nowrap text-[11px]">${formatDateOnly(sc.dataCadastroStr)}</td>
             <td class="py-2.5 px-3 font-medium text-slate-700 whitespace-nowrap text-[11px]">${formatDateOnly(sc.dataNecessidadeStr)}</td>
             <td class="py-2.5 px-3 text-center whitespace-nowrap"><span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded font-semibold text-slate-700 text-[10px]">${sc.tempoSC}d</span></td>
-            <!-- Dias em Vermelho Perfeitamente Alinhados sem Quebra -->
             <td class="py-2.5 px-3 text-center whitespace-nowrap">${badgeDiasVermelho}</td>
             <td class="py-2.5 px-3 whitespace-nowrap"><span class="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200">${sc.situacao || '-'}</span></td>
             <td class="py-2.5 px-3 whitespace-nowrap">${badgeDest}</td>
             <td class="py-2.5 px-3 whitespace-nowrap">${badgeDemanda}</td>
-            <!-- Solicitante com fonte diminuída e alinhamento compacto -->
             <td class="py-2.5 px-3 text-[11px] leading-tight font-medium text-slate-700 max-w-[160px]">${sc.solicitante}</td>
             <td class="py-2.5 px-3 text-center text-slate-600 whitespace-nowrap text-[11px]">${sc.itens.length} itens</td>
             <td class="py-2.5 px-3 text-right font-semibold text-slate-800 whitespace-nowrap text-[11px]">${formatMoeda(sc.valorTotal)}</td>
