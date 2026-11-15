@@ -37,7 +37,7 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
 
-  <!-- TELA DE BLOQUEIO DE SEGURANÇA (EXIBIDA SE ACESSAR DIRETO SEM O PAINEL) -->
+  <!-- TELA DE BLOQUEIO DE SEGURANÇA (EXIBIDA SE ACESSAR DIRETO SEM O PAINEL OU SEM PERMISSÃO) -->
   <div id="telaBloqueio" class="fixed inset-0 bg-slate-900 z-[9999] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-md w-full p-8 text-center shadow-2xl border border-slate-200">
       <div class="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -48,7 +48,7 @@
         Este portal é exclusivo para <strong>Gerente e Administrador</strong> e só pode ser acessado através do login no Painel Principal. Acesso direto por link não é permitido.
       </p>
       <div class="space-y-3">
-        <a id="linkPainelRedirecionamento" href="https://spi-tel.github.io/" class="block w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-md">
+        <a id="linkPainelRedirecionamento" href="https://spi-tel.github.io/Login/" class="block w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold transition shadow-md">
           Ir para o Painel de Login
         </a>
         <p class="text-[11px] text-slate-400">Redirecionando automaticamente em <span id="segundosRedirecionamento" class="font-bold text-slate-600">3</span>s...</p>
@@ -73,6 +73,7 @@
         </div>
 
         <div class="flex items-center gap-3">
+          <span id="usuarioLogadoHeader" class="text-xs text-slate-300 font-medium hidden sm:inline"></span>
           <button id="btnRefresh" onclick="carregarDados()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar
           </button>
@@ -381,34 +382,30 @@
 
   <script>
     // ==============================================================
-    // CONFIGURAÇÃO DE SEGURANÇA E ACESSO VIA PAINEL
+    // CONFIGURAÇÃO DE SEGURANÇA E ACESSO VIA PAINEL (INTEGRADO)
     // ==============================================================
-    const URL_PAINEL_LOGIN = "https://spi-tel.github.io/"; 
-    const CHAVE_SECRETA_ACESSO = "COMPRAS_SESSAO_VALIDA"; 
+    const URL_PAINEL_LOGIN = "https://spi-tel.github.io/Login/"; 
 
     // Planilha do Google Sheets CSV
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSfn6Ra2r7-hXrKjkSl1BVdZm57NEjZ4jH85aWrIZAnwoTTUaAx4Km2596IZceVqfLB--P7IKZV4Em3/pub?gid=1842816317&single=true&output=csv";
 
     function validarAutenticacao() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tokenURL = urlParams.get('auth') || urlParams.get('token') || urlParams.get('access_token');
-      const sessaoAtiva = sessionStorage.getItem("portal_compras_auth");
+      const usuarioLogado = localStorage.getItem("usuario_logado");
+      const perfilUsuario = (localStorage.getItem("perfil_usuario") || "").toLowerCase().trim();
 
-      if (tokenURL === CHAVE_SECRETA_ACESSO || (tokenURL && tokenURL.length > 5) || sessaoAtiva === "true") {
-        sessionStorage.setItem("portal_compras_auth", "true");
-        
-        // Remove ?auth= da barra de navegação para evitar compartilhamento indevido
-        if (tokenURL) {
-          const cleanUrl = window.location.pathname + window.location.hash;
-          window.history.replaceState({}, document.title, cleanUrl);
-        }
+      // Verifica se está logado E se o perfil é Gerente ou Admin
+      const temPermissao = usuarioLogado && (perfilUsuario.includes("admin") || perfilUsuario.includes("gerente"));
+
+      if (temPermissao) {
+        const spanUser = document.getElementById("usuarioLogadoHeader");
+        if (spanUser) spanUser.innerText = `Olá, ${usuarioLogado}`;
 
         document.getElementById("telaBloqueio").classList.add("hidden");
         document.getElementById("conteudoPortal").classList.remove("hidden");
         return true;
       }
 
-      // Se tentar acessar diretamente pelo link sem estar logado no painel:
+      // Se não estiver logado ou não for Gerente/Admin, bloqueia e redireciona para o Login
       document.getElementById("linkPainelRedirecionamento").setAttribute("href", URL_PAINEL_LOGIN);
       iniciarRedirecionamento();
       return false;
@@ -422,14 +419,16 @@
         if (spanSeg) spanSeg.innerText = segundos;
         if (segundos <= 0) {
           clearInterval(interval);
-          window.location.href = URL_PAINEL_LOGIN;
+          window.location.replace(URL_PAINEL_LOGIN);
         }
       }, 1000);
     }
 
     function fazerLogout() {
-      sessionStorage.removeItem("portal_compras_auth");
-      window.location.href = URL_PAINEL_LOGIN;
+      localStorage.removeItem("usuario_logado");
+      localStorage.removeItem("perfil_usuario");
+      localStorage.removeItem("ultimo_acesso");
+      window.location.replace(URL_PAINEL_LOGIN);
     }
 
     // ==============================================================
